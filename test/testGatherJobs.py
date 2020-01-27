@@ -10,6 +10,7 @@ def test_Getting_jobs():
 
 
 def testWriteFile():
+    GatherJobs.main()
     jobFile = open("jobs.txt", 'r')
     linesInFile = jobFile.readlines()
     count = 0
