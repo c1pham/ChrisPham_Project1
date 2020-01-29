@@ -9,6 +9,7 @@ def main():  # collect jobs from github jobs API and store into text file
     jobs = get_jobs(jobs)
     file_name = "jobs.txt"
     write_jobs_to_file(jobs, file_name)
+    print(type(jobs))
 
 
 def get_jobs(jobs_list):
