@@ -26,7 +26,7 @@ def get_jobs(jobs_list):
     return jobs_list
 
 
-def write_jobs_to_file(jobs_list, file_name):
+def write_jobs_to_file(jobs_list, file_name):  # write dictionary objects into file
     writing_file = open(file_name, 'w')
     for entry in jobs_list:
         print(entry, file=writing_file)
