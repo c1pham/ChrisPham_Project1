@@ -6,38 +6,38 @@ import time
 
 def main():
     jobs = []  # hold jobs
-    jobs = getJobs(jobs)
-    fileName = "jobs.txt"
-    writeJobsToFile(jobs, fileName)
+    jobs = get_jobs(jobs)
+    file_name = "jobs.txt"
+    write_jobs_to_file(jobs, file_name)
 
 
-def getJobs(jobsList):
-    # Link to API that retreives job posting data
-    gitJobsURL = "https://jobs.github.com/positions.json?"
-    pageNum = 0
-    # retreives about 5 pages, puts all jobs in the job list
-    while pageNum < 5:
-        pageNum = pageNum + 1
-        parameters = {'page': pageNum}  # param to get jobs from a specific page
-        req = requests.get(url=gitJobsURL, params=parameters)  # get jobs
-        jobsFromAPI = req.json()
-        transferObjToList(jobsFromAPI, jobsList)
+def get_jobs(jobs_list):
+    # Link to API that retrieves job posting data
+    git_jobs_url = "https://jobs.github.com/positions.json?"
+    page_num = 0
+    # retrieves about 5 pages, puts all jobs in the job list
+    while page_num < 5:
+        page_num = page_num + 1
+        parameters = {'page': page_num}  # param to get jobs from a specific page
+        req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
+        jobs_from_api = req.json()
+        transfer_obj_to_list(jobs_from_api, jobs_list)
         time.sleep(.1)
-    return jobsList
+    return jobs_list
 
 
-def writeJobsToFile(jobsList, fileName):
-    writing_file = open(fileName, 'w')
-    for entry in jobsList:
+def write_jobs_to_file(jobs_list, file_name):
+    writing_file = open(file_name, 'w')
+    for entry in jobs_list:
         print(entry, file=writing_file)
     writing_file.close()
 
 
 # move list from API to python job list
-def transferObjToList(jsonList, receiveList):
-    for entry in jsonList:
-        receiveList.append(entry)
+def transfer_obj_to_list(json_list, receive_list):
+    for entry in json_list:
+        receive_list.append(entry)
 
 
-if __name__ == '__main__': # if running from this file, then run the main function
+if __name__ == '__main__':  # if running from this file, then run the main function
     main()
