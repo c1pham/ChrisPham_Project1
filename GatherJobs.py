@@ -4,7 +4,7 @@ import time
 # this is page I used for reference to learn request
 
 
-def main():
+def main():  # collect jobs from github jobs API and store into text file
     jobs = []  # hold jobs
     jobs = get_jobs(jobs)
     file_name = "jobs.txt"
