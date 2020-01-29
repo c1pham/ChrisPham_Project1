@@ -22,7 +22,7 @@ def get_jobs(jobs_list):
         req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
         jobs_from_api = req.json()
         transfer_obj_to_list(jobs_from_api, jobs_list)
-        time.sleep(.1)
+        time.sleep(5)
     return jobs_list
 
 
