@@ -1,4 +1,3 @@
-import pytest
 import GatherJobs
 
 
@@ -21,4 +20,3 @@ def test_write_file():
         if indicator != -1:
             count = count + 1
     assert count != 0
-
