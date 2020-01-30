@@ -1,5 +1,6 @@
 import requests
 import time
+import json
 # https://www.geeksforgeeks.org/get-post-requests-using-python/
 # this is page I used for reference to learn request
 
@@ -30,7 +31,9 @@ def get_jobs(jobs_list):
 def write_jobs_to_file(jobs_list, file_name):  # write dictionary objects into file
     writing_file = open(file_name, 'w')
     for entry in jobs_list:
-        print(entry, file=writing_file)
+        json.dump(entry, writing_file)
+        # dumping
+        # print(entry, file=writing_file)
     writing_file.close()
 
 
