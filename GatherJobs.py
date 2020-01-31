@@ -40,8 +40,6 @@ def write_jobs_to_file(jobs_list, file_name):  # write dictionary objects into f
 
 # move job from API list to programs own job list
 def transfer_obj_to_list(json_list, receive_list):
-    # for entry in json_list:
-    #     receive_list.append(entry)
     receive_list.extend(json_list)
 
 
