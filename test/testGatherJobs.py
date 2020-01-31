@@ -18,4 +18,3 @@ def test_write_file():
     indicator = lines_in_file[0].find("(Senior-) Full Stack TypeScript Developer (m/w/d)")
     # if the find function returns anything else than -1, meaning it return position of string then the test passed
     assert indicator != 1
-
