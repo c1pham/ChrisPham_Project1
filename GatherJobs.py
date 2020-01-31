@@ -27,7 +27,7 @@ def get_jobs(jobs_list):
         req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
         if str(req) != "<Response [503]>":  # if message is not 503, then convert to json and print
             jobs_from_api = req.json()
-            transfer_obj_to_list(jobs_from_api, jobs_list)
+            jobs_list.extend(jobs_from_api)  # move jobs from api list to job list
             time.sleep(.1)
     return jobs_list
 
@@ -36,11 +36,6 @@ def write_jobs_to_file(jobs_list, file_name):  # write dictionary objects into f
     writing_file = open(file_name, 'w')
     json.dump(jobs_list, writing_file)
     writing_file.close()
-
-
-# move job from API list to programs own job list
-def transfer_obj_to_list(json_list, receive_list):
-    receive_list.extend(json_list)
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
