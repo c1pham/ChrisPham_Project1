@@ -1,12 +1,9 @@
 import requests
 import time
-import json
 
 
 # https://www.geeksforgeeks.org/get-post-requests-using-python/
 # this is page I used for reference to learn request
-# https://developer.rhino3d.com/guides/rhinopython/python-xml-json/
-# this page help me to learn json
 
 
 def main():  # collect jobs from github jobs API and store into text file
@@ -34,7 +31,8 @@ def get_jobs(jobs_list):
 
 def write_jobs_to_file(jobs_list, file_name):  # write dictionary objects into file
     writing_file = open(file_name, 'w')
-    json.dump(jobs_list, writing_file)
+    # json.dump(jobs_list, writing_file)
+    print(jobs_list, file=writing_file)
     writing_file.close()
 
 
