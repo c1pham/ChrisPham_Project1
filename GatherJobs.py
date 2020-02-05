@@ -16,9 +16,10 @@ def main():  # collect jobs from github jobs API and store into text file
 def get_jobs(jobs_list):
     # Link to API that retrieves job posting data
     git_jobs_url = "https://jobs.github.com/positions.json?"
-    page_num = 0
+    page_num = 1
     # retrieves about 5 pages, puts all jobs in the job list
-    while page_num < 5:
+    # you are making a *big* assumption that you won't need more than 5
+    while page_num <= 5:
         page_num = page_num + 1
         parameters = {'page': page_num}  # param to get jobs from a specific page
         req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
