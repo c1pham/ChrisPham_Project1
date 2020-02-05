@@ -48,7 +48,7 @@ def write_jobs_to_file(jobs_list, file_name: str):  # write dictionary objects i
 
 
 def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, jobs_list: List):
-    for entry in jobs_list: # go through each job posting and then add it to database table
+    for entry in jobs_list:  # go through each job posting and then add it to database table
         add_job_to_db(db_cursor, entry['title'], entry['type'], entry['company'], entry['location'],
                       entry['description'], api_id=entry['id'], url=entry['url'], created_at=entry['created_at'],
                       apply_url=entry['how_to_apply'], logo_url=entry['company_logo'], company_url=entry['company_url'])
