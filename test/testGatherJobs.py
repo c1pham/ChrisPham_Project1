@@ -5,6 +5,7 @@ def test_getting_jobs():
     jobs = []
     jobs = GatherJobs.get_jobs(jobs)  # get jobs from API
     num_jobs = len(jobs)
+    print(len(jobs))
     # checks to see if it gathered the right amount of jobs
     assert num_jobs > 100
 
@@ -18,3 +19,4 @@ def test_write_file():
     indicator = lines_in_file[0].find("(Senior-) Full Stack TypeScript Developer (m/w/d)")
     # if the find function returns anything else than -1, meaning it return position of string then the test passed
     assert indicator != 1
+
