@@ -1,4 +1,3 @@
 requests
 pytest
-sqlite3
 typing
