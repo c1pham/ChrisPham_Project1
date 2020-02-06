@@ -16,8 +16,6 @@ def main():  # collect jobs from github jobs API and store into text file
     create_jobs_table(db_cursor)
     jobs = []  # hold jobs
     jobs = get_jobs(jobs)
-    # file_name = "jobs.txt"
-    # write_jobs_to_file(jobs, file_name)
     save_git_jobs_to_db(db_cursor, jobs)
     close_db(db_connection)
 
@@ -35,8 +33,8 @@ def get_jobs(jobs_list):
             jobs_from_api = req.json()
             jobs_list.extend(jobs_from_api)  # move jobs from api list to job list
             time.sleep(.1)
-            page_num = page_num + 1
-            if len(jobs_from_api) < 50:
+            page_num = page_num + 1  # if successful then increment page counter
+            if len(jobs_from_api) < 50:  # if the length of the job page is less than 50 then it is last page
                 more_jobs = False
     return jobs_list
 
