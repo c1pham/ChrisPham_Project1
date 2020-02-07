@@ -69,4 +69,3 @@ def test_making_db():
     status = os.path.exists("jobs_db")  # returns true if this file exist
     # ALSO ASK PROFESSOR IF WE CAN STOP HERE DO I NEED TO CHECK IF THIS FILE IS DB OR JUST IF IT EXIST
     assert status is True  # pass test if it is true this file exists
-
