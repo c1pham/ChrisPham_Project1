@@ -1,4 +1,5 @@
 import GatherJobs
+import os.path
 # https://pythonexamples.org/python-sqlite3-check-if-table-exists/
 # this is website where I learned SQL command to check if it exist
 
@@ -29,13 +30,13 @@ def test_save_to_db():
     jobs = []  # hold jobs
     jobs = GatherJobs.get_jobs(jobs)  # get jobs from Github jobs API
     num_jobs_from_api = len(jobs)
-    # num of jobs before save new jobs to db
+    # num of jobs before programed save new jobs to db
     num_db_jobs_before_save = len(list(db_cursor.execute("SELECT * FROM JOBS;")))
     GatherJobs.save_git_jobs_to_db(db_cursor, jobs)  # add new jobs to db
     GatherJobs.close_db(db_connection)
 
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")
-    # checks how many jobs in db now
+    # checks how many jobs in db after new jobs are saved
     num_db_jobs_after_save = len(list(db_cursor.execute("SELECT * FROM JOBS;")))
 
     job_name = jobs[1]['title']  # this is title of 1st job from github jobs API
@@ -46,3 +47,26 @@ def test_save_to_db():
     assert num_jobs_from_api == num_db_jobs_after_save - num_db_jobs_before_save
     # if the results from this query is 1 or more, we know this job saved correctly to the db
     assert num_results >= 1
+
+
+def test_create_table():
+    db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # open db
+    GatherJobs.create_jobs_table(db_cursor)  # create table
+    result = db_cursor.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='jobs';")
+    list_result = list(result)  # this takes the sql data from cursor and turn into a list
+    GatherJobs.close_db(db_connection)
+    # the data from sql in the 0 slot is a tuple
+    # and the only item in the tuple is a count of how many tables have that name
+    num_matches = list_result[0][0]
+    assert num_matches == 1  # if that count is 1 then table is successfully created
+    # ALSO ASK PROFESSOR IF NEED TO COUNT FOR MORE TABLES
+
+
+# checks to see if database exist
+def test_making_db():
+    db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # this will make database if it does not exist
+    GatherJobs.close_db(db_connection)
+    status = os.path.exists("jobs_db")  # returns true if this file exist
+    # ALSO ASK PROFESSOR IF WE CAN STOP HERE DO I NEED TO CHECK IF THIS FILE IS DB OR JUST IF IT EXIST
+    assert status is True  # pass test if it is true this file exists
+
