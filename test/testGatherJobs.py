@@ -9,7 +9,7 @@ import pytest
 def get_data():
     import GatherJobs  # this runs independently of everything else before code is run so we import here
     all_jobs = []
-    all_jobs = GatherJobs.get_jobs(jobs)  # get jobs from API
+    all_jobs = GatherJobs.get_jobs(all_jobs)  # get jobs from API
     return all_jobs
 
 
