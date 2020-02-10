@@ -20,7 +20,7 @@ def main():  # collect jobs from github jobs API and store into text file
     close_db(db_connection)
 
 
-def get_jobs(jobs_list):
+def get_jobs(all_jobs: List) -> List:
     # Link to API that retrieves job posting data
     git_jobs_url = "https://jobs.github.com/positions.json?"
     page_num = 1
@@ -31,22 +31,22 @@ def get_jobs(jobs_list):
         req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
         if str(req) != "<Response [503]>":  # if message is not 503, then convert to json and print
             jobs_from_api = req.json()
-            jobs_list.extend(jobs_from_api)  # move jobs from api list to job list
+            all_jobs.extend(jobs_from_api)  # move jobs from api list to job list
             time.sleep(.1)
             page_num = page_num + 1  # if successful then increment page counter
             if len(jobs_from_api) < 50:  # if the length of the job page is less than 50 then it is last page
                 more_jobs = False
-    return jobs_list
+    return all_jobs
 
 
-def write_jobs_to_file(jobs_list, file_name: str):  # write dictionary objects into file
+def write_jobs_to_file(all_jobs, file_name: str):  # write dictionary objects into file
     writing_file = open(file_name, 'w')
-    print(jobs_list, file=writing_file)  # write whole list to file
+    print(all_jobs, file=writing_file)  # write whole list to file
     writing_file.close()  # close so the file will save
 
 
-def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, jobs_list: List):
-    for entry in jobs_list:  # go through each job posting and then add it to database table
+def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
+    for entry in all_jobs:  # go through each job posting and then add it to database table
         add_job_to_db(db_cursor, entry['title'], entry['type'], entry['company'], entry['location'],
                       entry['description'], api_id=entry['id'], url=entry['url'], created_at=entry['created_at'],
                       apply_url=entry['how_to_apply'], logo_url=entry['company_logo'], company_url=entry['company_url'])
