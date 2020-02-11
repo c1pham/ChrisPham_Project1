@@ -10,26 +10,15 @@ def get_data():
     import GatherJobs  # this runs independently of everything else before code is run so we import here
     all_jobs = []
     all_jobs = GatherJobs.get_jobs(all_jobs)  # get jobs from API
-    return all_jobs
+    processed_jobs = GatherJobs.process_all_jobs(all_jobs)
+    return processed_jobs
 
 
 def test_getting_jobs(get_data):
-    jobs = []
     jobs = get_data  # get jobs from API
     num_jobs = len(jobs)
     # checks to see if it gathered the right amount of jobs
     assert num_jobs > 100
-
-
-# def test_write_file():
-#    GatherJobs.main()
-#    job_file = open("jobs.txt", 'r')
-#    lines_in_file = job_file.readlines()
-#    # this looks through the first line of document to find this job title because dump put all data in first line
-#    # find will return -1 if the string is not in there
-#    indicator = lines_in_file[0].find("(Senior-) Full Stack TypeScript Developer (m/w/d)")
-#    # if the find function returns anything else than -1, meaning it return position of string then the test passed
-#    assert indicator != 1
 
 
 # checks to see if appropriate number of jobs save and if a specific job I know is there saved
@@ -52,7 +41,7 @@ def test_save_all_jobs_to_db(get_data):
     assert num_jobs_from_api == num_db_jobs_after_save - num_db_jobs_before_save
 
 
-def test_save_specific_job_to_db(get_data):
+def test_save_specific_job_to_db_good_data(get_data):
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # open db
     GatherJobs.create_jobs_table(db_cursor)
     all_jobs = get_data  # hold jobs from Github jobs API
@@ -65,6 +54,18 @@ def test_save_specific_job_to_db(get_data):
     num_results = len(list(result))
     GatherJobs.close_db(db_connection)  # close db connection
     assert num_results >= 1
+
+
+#  def test_save_specific_job_to_db_bad_data():
+#    db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # open db
+#    GatherJobs.create_jobs_table(db_cursor)
+#    fake_job_title = "Software Engineer NO WAY COULD BE JOB TITLE" + random.randint()
+#    fake_job_company = "Stark Industries" + random.randint()
+#    GatherJobs.add_job_to_db(db_cursor, fake_job_title, None, fake_job_company, None, None)
+#    GatherJobs.close_db(db_connection)
+#    bad_data = (fake_job_title, None, fake_job_company, None, None)
+#    db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # open db
+#    db_cursor.execute("SELECT * FROM JOBS WHERE ")
 
 
 def test_create_table():

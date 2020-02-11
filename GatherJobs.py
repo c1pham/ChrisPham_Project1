@@ -3,6 +3,7 @@ import time
 import sqlite3
 from typing import Tuple
 from typing import List
+from typing import Dict
 
 
 # https://www.geeksforgeeks.org/get-post-requests-using-python/
@@ -16,8 +17,17 @@ def main():  # collect jobs from github jobs API and store into text file
     create_jobs_table(db_cursor)
     jobs = []  # hold jobs
     jobs = get_jobs(jobs)
-    save_git_jobs_to_db(db_cursor, jobs)
+    processed_jobs = process_all_jobs(jobs)
+    save_git_jobs_to_db(db_cursor, processed_jobs)
     close_db(db_connection)
+
+
+def test():
+    jobs = []
+    all_jobs = get_jobs(jobs)
+    processed_jobs = process_all_jobs(all_jobs)
+    for entry in processed_jobs:
+        print(entry)
 
 
 def get_jobs(all_jobs: List) -> List:
@@ -26,7 +36,8 @@ def get_jobs(all_jobs: List) -> List:
     page_num = 1
     # retrieves about 5 pages, puts all jobs in the job list
     more_jobs = True
-    while more_jobs:
+    error_code_503_responses = 0
+    while more_jobs and error_code_503_responses < 10:  # after 10 503 errors will stop requesting
         parameters = {'page': page_num}  # param to get jobs from a specific page
         req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
         if str(req) != "<Response [503]>":  # if message is not 503, then convert to json and print
@@ -36,7 +47,46 @@ def get_jobs(all_jobs: List) -> List:
             page_num = page_num + 1  # if successful then increment page counter
             if len(jobs_from_api) < 50:  # if the length of the job page is less than 50 then it is last page
                 more_jobs = False
+        elif str(req) == "<Response [503]>":
+            error_code_503_responses += 1
     return all_jobs
+
+
+def remove_null_from_all_jobs(all_jobs: List[Dict]):
+    for entry in all_jobs:
+        for key in entry:
+            if entry[key] is None:
+                entry[key] = "NOT PROVIDED"
+
+
+def process_all_jobs(all_jobs: List[Dict]):
+    processed_jobs = []
+    # keys that would be in dictionary
+    job_keys = {'id': ['api_id'], 'type': ['job_type'], 'url': [], 'created_at': [], 'company': [], 'company_url': [],
+                'location': [], 'title': [], 'description': [], 'how_to_apply': ["how_to_apply_url"],
+                'company_logo': ['company_logo_url'], 'additional_info': []}
+    counter = 0  # keep track of item in dictionary
+    # will go through each job and see if the key is in job keys, if so it will update the dictionary value
+    for job in all_jobs:
+        processed_jobs.append({})
+        for key in job_keys.keys():
+            if key in job.keys():
+                value = all_jobs[counter][key]
+                if value is not None:
+                    # check to see if key is type because we cannot name table column 'type' so it is named job_type
+                    if len(job_keys[key]) == 1:
+                        processed_jobs[counter][job_keys[key][0]] = all_jobs[counter][key]
+                    else:  # rest of other keys match up
+                        processed_jobs[counter][key] = all_jobs[counter][key]
+                else:  # if the value is null then replace it with not provided
+                    if len(job_keys[key]) == 1:
+                        processed_jobs[counter][job_keys[key][0]] = "NOT PROVIDED"
+                    else:
+                        processed_jobs[counter][key] = "NOT PROVIDED"
+            else:  # if the key is not in the dictionary will make the value of it not provided
+                processed_jobs[counter][key] = "NOT PROVIDED"
+        counter += 1
+    return processed_jobs
 
 
 def write_jobs_to_file(all_jobs, file_name: str):  # write dictionary objects into file
@@ -47,9 +97,7 @@ def write_jobs_to_file(all_jobs, file_name: str):  # write dictionary objects in
 
 def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
     for entry in all_jobs:  # go through each job posting and then add it to database table
-        add_job_to_db(db_cursor, entry['title'], entry['type'], entry['company'], entry['location'],
-                      entry['description'], api_id=entry['id'], url=entry['url'], created_at=entry['created_at'],
-                      apply_url=entry['how_to_apply'], logo_url=entry['company_logo'], company_url=entry['company_url'])
+        add_job_to_db(db_cursor, entry)
 
 
 # make connection to database and return the connection and cursor
@@ -70,14 +118,14 @@ def create_jobs_table(db_cursor: sqlite3.Cursor):
     db_cursor.execute('''CREATE TABLE IF NOT EXISTS jobs(
     job_no INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
-    job_type TEXT NOT NULL,
+    job_type TEXT,
     company TEXT NOT NULL,
     location TEXT NOT NULL,
     description TEXT NOT NULL,
     api_id TEXT,
     url TEXT,
     created_at TEXT,
-    how_to_apply_url TEXT,
+    how_to_apply_url TEXT NOT NULL,
     company_logo_url TEXT,
     company_url TEXT,
     additional_info TEXT
@@ -85,18 +133,19 @@ def create_jobs_table(db_cursor: sqlite3.Cursor):
 
 
 # this function is used to save individual jobs to database
-def add_job_to_db(cursor: sqlite3.Cursor, title, job_type, company, location, description, api_id=None, url=None,
-                  created_at=None, apply_url=None, logo_url=None, company_url=None, additional_info=None):
+def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
     #  data to be entered
-    data = (title, job_type, company, location, description, api_id, url, created_at, apply_url, logo_url, company_url,
-            additional_info)
+    sql_data = (job_data['title'], job_data['job_type'], job_data['company'], job_data['location'],
+                job_data['description'], job_data['api_id'], job_data['url'], job_data['created_at'],
+                job_data['how_to_apply_url'], job_data['company_logo_url'], job_data['company_url'],
+                job_data['additional_info'])
     # SQL statement to insert data into jobs table
     sql_statement = '''INSERT INTO JOBS (title, job_type, company, location, description, api_id, url, created_at,
     how_to_apply_url, company_logo_url, company_url, additional_info)  VALUES (?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?, ?, ?);
     '''
     # insert new entry to table
-    cursor.execute(sql_statement, data)
+    cursor.execute(sql_statement, sql_data)
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
