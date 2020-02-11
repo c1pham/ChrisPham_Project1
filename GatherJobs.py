@@ -30,7 +30,7 @@ def test():
         print(entry)
 
 
-def get_jobs(all_jobs: List) -> List:
+def get_jobs(all_jobs: List) -> List[Dict]:
     # Link to API that retrieves job posting data
     git_jobs_url = "https://jobs.github.com/positions.json?"
     page_num = 1
@@ -52,47 +52,43 @@ def get_jobs(all_jobs: List) -> List:
     return all_jobs
 
 
-def remove_null_from_all_jobs(all_jobs: List[Dict]):
-    for entry in all_jobs:
-        for key in entry:
-            if entry[key] is None:
-                entry[key] = "NOT PROVIDED"
-
-
-def process_all_jobs(all_jobs: List[Dict]):
+# process all jobs, formatting data structure so it so it can be saved to database no problem
+def process_all_jobs(all_jobs: List[Dict]) -> List[Dict]:
     processed_jobs = []
+    for job in all_jobs:
+        processed_job = process_job(job)
+        processed_jobs.append(processed_job)
+    return processed_jobs
+
+
+# works ad adapter class, moves job data to a new dictionary
+def process_job(job_data: Dict) -> Dict:
+    processed_job = {}
     # keys that would be in dictionary
     job_keys = {'id': ['api_id'], 'type': ['job_type'], 'url': [], 'created_at': [], 'company': [], 'company_url': [],
                 'location': [], 'title': [], 'description': [], 'how_to_apply': ["how_to_apply_url"],
                 'company_logo': ['company_logo_url'], 'additional_info': []}
-    counter = 0  # keep track of item in dictionary
     # will go through each job and see if the key is in job keys, if so it will update the dictionary value
-    for job in all_jobs:
-        processed_jobs.append({})
-        for key in job_keys.keys():
-            if key in job.keys():
-                value = all_jobs[counter][key]
-                if value is not None:
-                    # check to see if key is type because we cannot name table column 'type' so it is named job_type
-                    if len(job_keys[key]) == 1:
-                        processed_jobs[counter][job_keys[key][0]] = all_jobs[counter][key]
-                    else:  # rest of other keys match up
-                        processed_jobs[counter][key] = all_jobs[counter][key]
-                else:  # if the value is null then replace it with not provided
-                    if len(job_keys[key]) == 1:
-                        processed_jobs[counter][job_keys[key][0]] = "NOT PROVIDED"
-                    else:
-                        processed_jobs[counter][key] = "NOT PROVIDED"
-            else:  # if the key is not in the dictionary will make the value of it not provided
-                processed_jobs[counter][key] = "NOT PROVIDED"
-        counter += 1
-    return processed_jobs
-
-
-def write_jobs_to_file(all_jobs, file_name: str):  # write dictionary objects into file
-    writing_file = open(file_name, 'w')
-    print(all_jobs, file=writing_file)  # write whole list to file
-    writing_file.close()  # close so the file will save
+    for key in job_keys.keys():
+        if key in job_data.keys():
+            value = job_data[key]
+            if value is not None:
+                # check to see if key has value of length 1, that means they had a different column name
+                if len(job_keys[key]) == 1:
+                    processed_job[job_keys[key][0]] = job_data[key]
+                else:  # rest of other keys names match up to column names
+                    processed_job[key] = job_data[key]
+            else:  # if the value is null then replace it with not provided
+                if len(job_keys[key]) == 1:
+                    processed_job[job_keys[key][0]] = "NOT PROVIDED"
+                else:
+                    processed_job[key] = "NOT PROVIDED"
+        else:  # if the key is not in the dictionary will make the add the key pair with the value of it not provided
+            if len(job_keys[key]) == 1:
+                processed_job[job_keys[key][0]] = "NOT PROVIDED"
+            else:
+                processed_job[key] = "NOT PROVIDED"
+    return processed_job
 
 
 def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
@@ -133,7 +129,8 @@ def create_jobs_table(db_cursor: sqlite3.Cursor):
 
 
 # this function is used to save individual jobs to database
-def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
+def add_job_to_db(cursor: sqlite3.Cursor, preprocess_job_data: Dict):
+    job_data = process_job(preprocess_job_data)
     #  data to be entered
     sql_data = (job_data['title'], job_data['job_type'], job_data['company'], job_data['location'],
                 job_data['description'], job_data['api_id'], job_data['url'], job_data['created_at'],
