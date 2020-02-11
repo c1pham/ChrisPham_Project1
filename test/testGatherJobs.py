@@ -1,6 +1,8 @@
 import GatherJobs
 import os.path
 import pytest
+
+
 # https://pythonexamples.org/python-sqlite3-check-if-table-exists/
 # this is website where I learned SQL command to check if it exist
 
@@ -79,7 +81,7 @@ def test_save_specific_job_to_db_bad_data(get_data):
     # if we saved data to handle null data, the null values were changed to NOT PROVIDED
     # we should also find at least one new entry
     results_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                         (fake_title, "NOT PROVIDED"))
+                                             (fake_title, "NOT PROVIDED"))
     num_results_after_saving = len(list(results_after_saving))
     GatherJobs.close_db(db_connection)
     assert num_results_after_saving - num_results_before_saving == 1
