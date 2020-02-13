@@ -2,4 +2,3 @@ requests
 pytest
 typing
 feedparser
-ssl

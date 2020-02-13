@@ -29,6 +29,8 @@ def test():
     print(raw_data.feed)
     for item in raw_data.entries:
         print(item)
+    print(len(raw_data.entries))
+    return raw_data.entries
 
 
 def get_jobs(all_jobs: List) -> List[Dict]:
@@ -147,5 +149,5 @@ def add_job_to_db(cursor: sqlite3.Cursor, preprocess_job_data: Dict):
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
-    main()
-    # test()
+    # main()
+    test()
