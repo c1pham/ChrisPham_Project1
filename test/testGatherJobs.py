@@ -111,4 +111,3 @@ def test_making_db():
 
 def test_getting_jobs_from_rss():
     assert len(GatherJobs.test()) > 0
-
