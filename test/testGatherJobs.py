@@ -109,5 +109,6 @@ def test_making_db():
     assert file_exist is True  # pass test if it is true this file exists
 
 
-def getting_jobs_from_rss():
+def test_getting_jobs_from_rss():
     assert len(GatherJobs.test()) > 0
+
