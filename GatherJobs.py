@@ -4,7 +4,7 @@ import sqlite3
 from typing import Tuple
 from typing import List
 from typing import Dict
-
+import feedparser
 
 # https://www.geeksforgeeks.org/get-post-requests-using-python/
 # this is page I used for reference to learn request
@@ -23,11 +23,11 @@ def main():  # collect jobs from github jobs API and store into text file
 
 
 def test():
-    jobs = []
-    all_jobs = get_jobs(jobs)
-    processed_jobs = process_all_jobs(all_jobs)
-    for entry in processed_jobs:
-        print(entry)
+    raw_data = feedparser.parse('https://stackoverflow.com/jobs/feed')
+    print(raw_data)
+    print(raw_data.feed)
+    for item in raw_data.entries:
+        print(item)
 
 
 def get_jobs(all_jobs: List) -> List[Dict]:
@@ -146,4 +146,5 @@ def add_job_to_db(cursor: sqlite3.Cursor, preprocess_job_data: Dict):
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
-    main()
+    # main()
+    test()
