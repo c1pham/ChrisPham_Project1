@@ -27,7 +27,7 @@ def test_getting_jobs(get_data):
 # checks to see if appropriate number of jobs save and if a specific job I know is there saved
 def test_save_all_jobs_to_db(get_data):
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # open db
-    GatherJobs.create_jobs_table(db_cursor)
+    GatherJobs.create_github_jobs_table(db_cursor)
     all_jobs = get_data  # hold jobs
     num_jobs_from_api = len(all_jobs)
     # num of jobs before programed save new jobs to db
@@ -48,7 +48,7 @@ def test_save_all_jobs_to_db(get_data):
 def test_save_specific_job_to_db_good_data(get_data):
     #  set up database and save the jobs to the data base
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")
-    GatherJobs.create_jobs_table(db_cursor)
+    GatherJobs.create_github_jobs_table(db_cursor)
     all_jobs = get_data  # hold jobs from Github jobs API
     GatherJobs.save_git_jobs_to_db(db_cursor, all_jobs)
     GatherJobs.close_db(db_connection)
@@ -64,7 +64,7 @@ def test_save_specific_job_to_db_good_data(get_data):
 #  checks to see how bad data saved to the database
 def test_save_specific_job_to_db_bad_data(get_data):
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")  # open db
-    GatherJobs.create_jobs_table(db_cursor)
+    GatherJobs.create_github_jobs_table(db_cursor)
     job_data = get_data[0]
     # makes all the values in the job data None
     for key in job_data:

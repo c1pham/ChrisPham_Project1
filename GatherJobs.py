@@ -5,7 +5,7 @@ from typing import Tuple
 from typing import List
 from typing import Dict
 import feedparser
-
+import ssl
 # https://www.geeksforgeeks.org/get-post-requests-using-python/
 # this is page I used for reference to learn request
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
@@ -14,7 +14,7 @@ import feedparser
 
 def main():  # collect jobs from github jobs API and store into text file
     db_connection, db_cursor = open_db("jobs_db")
-    create_jobs_table(db_cursor)
+    create_github_jobs_table(db_cursor)
     jobs = []  # hold jobs
     jobs = get_jobs(jobs)
     processed_jobs = process_all_jobs(jobs)
@@ -23,6 +23,7 @@ def main():  # collect jobs from github jobs API and store into text file
 
 
 def test():
+    ssl._create_default_https_context = ssl._create_unverified_context
     raw_data = feedparser.parse('https://stackoverflow.com/jobs/feed')
     print(raw_data)
     print(raw_data.feed)
@@ -110,7 +111,7 @@ def close_db(connection: sqlite3.Connection):
 
 
 # create table for jobs to be stored
-def create_jobs_table(db_cursor: sqlite3.Cursor):
+def create_github_jobs_table(db_cursor: sqlite3.Cursor):
     db_cursor.execute('''CREATE TABLE IF NOT EXISTS jobs(
     job_no INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
@@ -146,5 +147,5 @@ def add_job_to_db(cursor: sqlite3.Cursor, preprocess_job_data: Dict):
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
-    # main()
-    test()
+    main()
+    # test()
