@@ -31,13 +31,13 @@ def test_save_all_jobs_to_db(get_data):
     all_jobs = get_data  # hold jobs
     num_jobs_from_api = len(all_jobs)
     # num of jobs before programed save new jobs to db
-    num_db_jobs_before_save = len(list(db_cursor.execute("SELECT * FROM JOBS;")))
+    num_db_jobs_before_save = len(list(db_cursor.execute("SELECT * FROM GITHUB_JOBS;")))
     GatherJobs.save_git_jobs_to_db(db_cursor, all_jobs)  # add new jobs to db
     GatherJobs.close_db(db_connection)
 
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")
     # checks how many jobs in db after new jobs are saved
-    num_db_jobs_after_save = len(list(db_cursor.execute("SELECT * FROM JOBS;")))
+    num_db_jobs_after_save = len(list(db_cursor.execute("SELECT * FROM GITHUB_JOBS;")))
 
     GatherJobs.close_db(db_connection)  # close db connection
     # if the number of new jobs added is same as the difference between jobs now and jobs before in db then test passed
@@ -55,7 +55,7 @@ def test_save_specific_job_to_db_good_data(get_data):
     # reopen db and check to see if first entry is in it
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")
     job_name = all_jobs[0]['title']  # this is title of 1st job from github jobs API
-    result = db_cursor.execute("SELECT * FROM JOBS WHERE title = ?;", (job_name,))
+    result = db_cursor.execute("SELECT * FROM GITHUB_JOBS WHERE title = ?;", (job_name,))
     num_results = len(list(result))
     GatherJobs.close_db(db_connection)  # close db connection
     assert num_results >= 1
@@ -71,7 +71,7 @@ def test_save_specific_job_to_db_bad_data(get_data):
         job_data[key] = None
     fake_title = "FAKE SOFTWARE ENGINEERING TITLE NAME"
     job_data['title'] = fake_title  # make one entry with a fake unique name
-    results_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+    results_before_saving = db_cursor.execute("SELECT * FROM GITHUB_JOBS WHERE title=? AND location=?;",
                                               (fake_title, "NOT PROVIDED"))
     num_results_before_saving = len(list(results_before_saving))  # number of this entry before saving it
     GatherJobs.add_job_to_db(db_cursor, job_data)
@@ -80,7 +80,7 @@ def test_save_specific_job_to_db_bad_data(get_data):
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")
     # if we saved data to handle null data, the null values were changed to NOT PROVIDED
     # we should also find at least one new entry
-    results_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+    results_after_saving = db_cursor.execute("SELECT * FROM GITHUB_JOBS WHERE title=? AND location=?;",
                                              (fake_title, "NOT PROVIDED"))
     num_results_after_saving = len(list(results_after_saving))
     GatherJobs.close_db(db_connection)
@@ -92,7 +92,8 @@ def test_save_specific_job_to_db_bad_data(get_data):
 def test_create_table():
     GatherJobs.main()  # run program
     db_connection, db_cursor = GatherJobs.open_db("jobs_db")
-    result = db_cursor.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='jobs';")
+    GatherJobs.create_github_jobs_table(db_cursor)
+    result = db_cursor.execute("SELECT count(name) FROM sqlite_master WHERE type='table' AND name='github_jobs';")
     all_result = list(result)  # this takes the sql data from cursor and turn into a list
     GatherJobs.close_db(db_connection)
     # the data from sql in the 0 slot is a tuple
