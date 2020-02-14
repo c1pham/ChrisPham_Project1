@@ -171,7 +171,7 @@ def add_job_to_db(cursor: sqlite3.Cursor, preprocess_job_data: Dict):
 
 def parse_date(date: str) -> Dict:
     date_dict = {}
-    months = ["Jan", "Feb", "Mar", "Apr", "June", "Jul", "Aug", "Oct", "Nov", "Dec"]
+#    months = ["Jan", "Feb", "Mar", "Apr", "June", "Jul", "Aug", "Oct", "Nov", "Dec"]
     date_parts = date.split(" ")
     date_dict["day"] = date_parts[1]
     date_dict["year"] = date_parts[4]
