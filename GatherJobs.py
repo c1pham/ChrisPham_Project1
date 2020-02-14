@@ -119,8 +119,6 @@ def is_invalid_github_data(essential_key, job_data):
             return True
 
 
-
-
 def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
     for entry in all_jobs:  # go through each job posting and then add it to database table
         add_job_to_db(db_cursor, entry)
