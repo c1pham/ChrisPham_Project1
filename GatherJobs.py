@@ -78,13 +78,14 @@ def process_job(job_data: Dict):
                 'company_logo': ['company_logo_url'], "additional_info": []}
     essential_keys = ['title', 'company', 'created_at']
 
+    if is_invalid_github_data(essential_keys, job_data) is True:
+        return False
+
     # will go through each job and see if the key is in job keys, if so it will update the dictionary value
     for key in job_keys.keys():
         if key in job_data.keys():
             value = job_data[key]
             if value is None:
-                if key in essential_keys:
-                    return False
                 # if the value is null then replace it with not provided
                 if len(job_keys[key]) == 1:
                     processed_job[job_keys[key][0]] = "NOT PROVIDED"
@@ -105,13 +106,19 @@ def process_job(job_data: Dict):
                 else:
                     processed_job[key] = value
             else:
-                if key in essential_keys:
-                    return False
                 if len(job_keys[key]) == 1:
                     processed_job[job_keys[key][0]] = "NOT PROVIDED"
                 else:
                     processed_job[key] = "NOT PROVIDED"
     return processed_job
+
+
+def is_invalid_github_data(essential_key, job_data):
+    for key in job_data:
+        if job_data[key] is None and key in essential_key:
+            return True
+
+
 
 
 def save_git_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
