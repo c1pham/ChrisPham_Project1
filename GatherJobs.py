@@ -77,6 +77,7 @@ def process_job(job_data: Dict):
                 'location': [], 'title': [], 'description': [], 'how_to_apply': ["how_to_apply_url"],
                 'company_logo': ['company_logo_url'], "additional_info": []}
     essential_keys = ['title', 'company', 'created_at']
+
     # will go through each job and see if the key is in job keys, if so it will update the dictionary value
     for key in job_keys.keys():
         if key in job_data.keys():
@@ -95,17 +96,17 @@ def process_job(job_data: Dict):
                     processed_job[job_keys[key][0]] = job_data[key]
                 else:  # rest of other keys names match up to column names
                     processed_job[key] = job_data[key]
-        if key not in job_data.keys():
+        else:
             # if the key is not in the dictionary will make the add the key pair with the value of it not provided
             value = job_data[job_keys[key][0]]
             if value is not None:
-                if key in essential_keys:
-                    return False
                 if len(job_keys[key]) == 1:
                     processed_job[job_keys[key][0]] = value
                 else:
                     processed_job[key] = value
             else:
+                if key in essential_keys:
+                    return False
                 if len(job_keys[key]) == 1:
                     processed_job[job_keys[key][0]] = "NOT PROVIDED"
                 else:
