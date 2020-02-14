@@ -113,4 +113,3 @@ def test_making_db():
     GatherJobs.close_db(db_connection)
     file_exist = os.path.exists("jobs_test_db")  # returns true if this file exist
     assert file_exist is True  # pass test if it is true this file exists
-
