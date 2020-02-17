@@ -18,7 +18,7 @@ def main():  # collect jobs from github jobs API and store into text file
     db_connection, db_cursor = open_db("jobs_db")
     create_jobs_table(db_cursor)
     github_jobs = []  # hold jobs
-    github_jobs = get_github_jobs(github_jobs)
+    github_jobs = get_github_jobs()
     stack_overflow_jobs = get_stack_overflow_jobs()
 
     processed_github_jobs = process_all_github_jobs(github_jobs)
@@ -85,7 +85,7 @@ def job_data_adaptor(job_keys, job_data, processed_job):
         if key in job_data.keys():
             value = job_data[key]
             if value is None:
-                # if the value is null then replace it with not provided
+                # if the value is none then replace it with not provided
                 if len(job_keys[key]) == 1:
                     processed_job[job_keys[key][0]] = "NOT PROVIDED"
                 else:
@@ -110,7 +110,8 @@ def job_data_adaptor(job_keys, job_data, processed_job):
     return processed_job
 
 
-def get_github_jobs(all_jobs: List) -> List[Dict]:
+def get_github_jobs() -> List[Dict]:
+    all_jobs = []
     # Link to API that retrieves job posting data
     git_jobs_url = "https://jobs.github.com/positions.json?"
     page_num = 1
