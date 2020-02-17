@@ -30,12 +30,15 @@ def main():  # collect jobs from github jobs API and store into text file
     close_db(db_connection)
 
 
+# get data from stack overflow rss feed
 def get_stack_overflow_jobs():
+    # moneky patch
     ssl._create_default_https_context = ssl._create_unverified_context
     raw_data = feedparser.parse('https://stackoverflow.com/jobs/feed')
     return raw_data.entries
 
 
+# takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
 def process_all_stack_overflow_jobs(all_jobs):
     processed_jobs = []
     for job in all_jobs:
@@ -46,6 +49,7 @@ def process_all_stack_overflow_jobs(all_jobs):
     return processed_jobs
 
 
+# process data from stack overflow
 def process_stack_overflow_job(job_data: Dict) -> Dict:
     processed_job = {}
     job_keys = {'id': ['api_id'], 'type': ['job_type'], 'link': ['url'], 'published': ['created_at'],
@@ -110,6 +114,7 @@ def job_data_adaptor(job_keys, job_data, processed_job):
     return processed_job
 
 
+# get github data from API
 def get_github_jobs() -> List[Dict]:
     all_jobs = []
     # Link to API that retrieves job posting data
@@ -167,6 +172,7 @@ def is_invalid_job_data(essential_key, job_data):
             return True
 
 
+# iterates through and save jobs
 def save_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
     for entry in all_jobs:  # go through each job posting and then add it to database table
         add_job_to_db(db_cursor, entry)
