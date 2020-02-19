@@ -106,24 +106,33 @@ def test_save_specific_github_job_to_db_bad_data():
     all_jobs = GatherJobs.get_github_jobs()  # get jobs from API
     for key in all_jobs[0]:
         all_jobs[0][key] = None
-    fake_title = "FAKE SOFTWARE ENGINEERING TITLE NAME"
-    all_jobs[0]['title'] = fake_title  # make one entry with a fake unique name
+    # we reject data that does not have an title. the processing function if it managed to go by would
+    # make it set to not provided
+    results_not_provided_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                           ("NOT PROVIDED", "NOT PROVIDED"))
+    results_none_data_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                        (None, None))
+    # number of this entry before saving it for titles with either "not provided" or None data stored
+    num_results_not_provided_before_saving = len(list(results_not_provided_before_saving))
+    num_results_none_data_before_saving = len(list(results_none_data_before_saving))
 
-    results_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                              (fake_title, "NOT PROVIDED"))
-    num_results_before_saving = len(list(results_before_saving))  # number of this entry before saving it
     GatherJobs.add_job_to_db(db_cursor, GatherJobs.process_github_job(all_jobs[0]))
     GatherJobs.close_db(db_connection)
 
     db_connection, db_cursor = GatherJobs.open_db("jobs_save_bad_github_data_db")
     # if the results should be same since the save to the processing function will return false
     # then the db saving function will reject false data
-    results_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                             (fake_title, "NOT PROVIDED"))
-    num_results_after_saving = len(list(results_after_saving))
+    results_not_provided_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                          ("NOT PROVIDED", "NOT PROVIDED"))
+    results_none_data_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                       (None, None))
+    # number of this entry after saving it for titles with either "not provided" or None data stored
+    num_results_not_provided_after_saving = len(list(results_not_provided_after_saving))
+    num_results_none_data_after_saving = len(list(results_none_data_after_saving))
     GatherJobs.close_db(db_connection)
-    assert num_results_after_saving == num_results_before_saving
-    # if the number of results increased by none after saving, we saved correctly
+    assert num_results_not_provided_after_saving == num_results_not_provided_before_saving
+    assert num_results_none_data_after_saving == num_results_none_data_before_saving
+    # if the number of results did not increased after saving, we know we rejected the data
 
 
 # checks to see if bad data is rejected from database
@@ -134,24 +143,31 @@ def test_save_specific_stack_overflow_job_to_db_bad_data():
     all_jobs = GatherJobs.get_stack_overflow_jobs()  # get jobs from API
     for key in all_jobs[0]:
         all_jobs[0][key] = None
-    fake_title = "FAKE WEB SOFTWARE ENGINEERING TITLE NAME"
-    all_jobs[0]['title'] = fake_title  # make one entry with a fake unique name
-
-    results_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                              (fake_title, "NOT PROVIDED"))
-    num_results_before_saving = len(list(results_before_saving))  # number of this entry before saving it
+    # we reject data that does not have an title. the processing function if it managed to go by would
+    # make it set to not provided
+    results_not_provided_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                           ("NOT PROVIDED", "NOT PROVIDED"))
+    results_none_data_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                        (None, None))
+    # number of this entry of title with not provided before saving it
+    num_results_not_provided_before_saving = len(list(results_not_provided_before_saving))
+    num_results_none_data_before_saving = len(list(results_none_data_before_saving))
     GatherJobs.add_job_to_db(db_cursor, GatherJobs.process_stack_overflow_job(all_jobs[0]))
     GatherJobs.close_db(db_connection)
 
     db_connection, db_cursor = GatherJobs.open_db("jobs_save_stack_overflow_bad_data_db")
     # if the results should be same since the save to the processing function will return false
     # then the db saving function will reject false data
-    results_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                             (fake_title, "NOT PROVIDED"))
-    num_results_after_saving = len(list(results_after_saving))
+    results_not_provided_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                          ("NOT PROVIDED", "NOT PROVIDED"))
+    results_none_data_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
+                                                       (None, None))
+    num_results_not_provided_after_saving = len(list(results_not_provided_after_saving))
+    num_results_none_data_after_saving = len(list(results_none_data_after_saving))
     GatherJobs.close_db(db_connection)
-    assert num_results_after_saving == num_results_before_saving
-    # if the number of results increased by none after saving, we saved correctly
+    assert num_results_not_provided_after_saving == num_results_not_provided_before_saving
+    assert num_results_none_data_before_saving == num_results_none_data_after_saving
+    # if the number of results did not increased after saving, we know we rejected the data
 
 
 # checks to see if table exist after program runs
