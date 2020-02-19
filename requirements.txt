@@ -2,3 +2,5 @@ requests
 pytest
 typing
 feedparser
+sqlite3
+ssl
