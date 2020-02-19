@@ -122,19 +122,19 @@ def get_github_jobs() -> List[Dict]:
     page_num = 1
     # retrieves about 5 pages, puts all jobs in the job list
     more_jobs = True
-    error_code_503_responses = 0
-    while more_jobs and error_code_503_responses < 10:  # after 10 503 errors will stop requesting
+    error_code_responses = 0
+    while more_jobs and error_code_responses < 10:  # after 10 errors will stop requesting
         parameters = {'page': page_num}  # param to get jobs from a specific page
         req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
-        if str(req) != "<Response [503]>":  # if message is not 503, then convert to json and print
+        if str(req) == "<Response [200]>":  # if message is 200, then convert to json and print
             jobs_from_api = req.json()
             all_jobs.extend(jobs_from_api)  # move jobs from api list to job list
             time.sleep(.1)
             page_num = page_num + 1  # if successful then increment page counter
             if len(jobs_from_api) < 50:  # if the length of the job page is less than 50 then it is last page
                 more_jobs = False
-        elif str(req) == "<Response [503]>":
-            error_code_503_responses += 1
+        else:  # if the message is not 200 then it means request was not successful
+            error_code_responses += 1
     return all_jobs
 
 
