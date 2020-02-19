@@ -106,12 +106,14 @@ def test_save_specific_github_job_to_db_bad_data():
     all_jobs = GatherJobs.get_github_jobs()  # get jobs from API
     for key in all_jobs[0]:
         all_jobs[0][key] = None
+    location = "Boston"
+    all_jobs[0]['location'] = location
     # we reject data that does not have an title. the processing function if it managed to go by would
     # make it set to not provided
     results_not_provided_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                                           ("NOT PROVIDED", "NOT PROVIDED"))
+                                                           ("NOT PROVIDED", location))
     results_none_data_before_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                                        (None, None))
+                                                        (None, location))
     # number of this entry before saving it for titles with either "not provided" or None data stored
     num_results_not_provided_before_saving = len(list(results_not_provided_before_saving))
     num_results_none_data_before_saving = len(list(results_none_data_before_saving))
@@ -123,9 +125,9 @@ def test_save_specific_github_job_to_db_bad_data():
     # if the results should be same since the save to the processing function will return false
     # then the db saving function will reject false data
     results_not_provided_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                                          ("NOT PROVIDED", "NOT PROVIDED"))
+                                                          ("NOT PROVIDED", location))
     results_none_data_after_saving = db_cursor.execute("SELECT * FROM JOBS WHERE title=? AND location=?;",
-                                                       (None, None))
+                                                       (None, location))
     # number of this entry after saving it for titles with either "not provided" or None data stored
     num_results_not_provided_after_saving = len(list(results_not_provided_after_saving))
     num_results_none_data_after_saving = len(list(results_none_data_after_saving))
