@@ -1,26 +1,38 @@
 import pandas
-import JobCollector
 from typing import List
 from typing import Dict
 from typing import Tuple
 import sqlite3
 import geopy
 import numpy
+import JobCollector
 
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
 # https://pypi.org/project/geopy/
 # reference for geopy documentation
+# https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html
+# reference to learn pandas, code is not copied but just used for referenced
 
 
 def main():
-    all_github_jobs = JobCollector.process_all_github_jobs(JobCollector.get_github_jobs())
-    all_stack_overflow_jobs = JobCollector.process_all_stack_overflow_jobs(JobCollector.get_stack_overflow_jobs())
-    all_jobs = all_stack_overflow_jobs + all_github_jobs
+    all_jobs = JobCollector.get_stack_overflow_jobs()
+    processed_jobs = process_all_stack_overflow_jobs(all_jobs)
+    nonremote_jobs = get_all_non_remote_jobs(processed_jobs)
+    data_for_plotly = process_job_data_into_dataframe(nonremote_jobs)
+    print(data_for_plotly)
 
 
-def process_job_data_with_pandas(job_data: List) -> List:
-    return
+def process_job_data_into_dataframe(job_data: List) -> pandas.DataFrame :
+    all_jobs = []
+    columns = ['title', 'lat', 'long']
+    for job in job_data:
+        location = job['location']
+        coordinates = get_lat_long_coordinates_from_address(location)
+        current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
+        all_jobs.append(current_job_data)
+    numpy_array = numpy.array(all_jobs)
+    return pandas.DataFrame(numpy_array, columns=columns)
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
@@ -211,6 +223,7 @@ def parse_date(date: str) -> str:
 def get_lat_long_coordinates_from_address(address: str) -> Tuple:
     geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
     location = geo_locator.geocode(address)
+    print(location)
     return location.latitude, location.longitude
 
 

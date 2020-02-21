@@ -1,6 +1,5 @@
 import requests
 import time
-from typing import Tuple
 from typing import List
 from typing import Dict
 import feedparser
