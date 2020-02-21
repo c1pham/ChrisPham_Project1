@@ -23,7 +23,7 @@ def main():
     print(data_for_plotly)
 
 
-def process_job_data_into_dataframe(job_data: List) -> pandas.DataFrame :
+def process_job_data_into_dataframe(job_data: List) -> pandas.DataFrame:
     all_jobs = []
     columns = ['title', 'lat', 'long']
     for job in job_data:
