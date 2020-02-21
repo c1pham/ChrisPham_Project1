@@ -1,41 +1,26 @@
-import requests
-import time
-import sqlite3
-from typing import Tuple
+import pandas
+import JobCollector
 from typing import List
 from typing import Dict
-import feedparser
-import ssl
+from typing import Tuple
+import sqlite3
+import geopy
+import numpy
 
-
-# https://www.geeksforgeeks.org/get-post-requests-using-python/
-# this is page I used for reference to learn request
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
+# https://pypi.org/project/geopy/
+# reference for geopy documentation
 
 
-def main():  # collect jobs from github jobs API and store into text file
-    db_connection, db_cursor = open_db("jobs_db")
-    create_jobs_table(db_cursor)
-    github_jobs = []  # hold jobs
-    github_jobs = get_github_jobs()
-    stack_overflow_jobs = get_stack_overflow_jobs()
-
-    processed_github_jobs = process_all_github_jobs(github_jobs)
-    processed_stack_overflow_jobs = process_all_stack_overflow_jobs(stack_overflow_jobs)
-
-    save_jobs_to_db(db_cursor, processed_github_jobs)
-    save_jobs_to_db(db_cursor, processed_stack_overflow_jobs)
-
-    close_db(db_connection)
+def main():
+    all_github_jobs = JobCollector.process_all_github_jobs(JobCollector.get_github_jobs())
+    all_stack_overflow_jobs = JobCollector.process_all_stack_overflow_jobs(JobCollector.get_stack_overflow_jobs())
+    all_jobs = all_stack_overflow_jobs + all_github_jobs
 
 
-# get data from stack overflow rss feed
-def get_stack_overflow_jobs():
-    # moneky patch
-    ssl._create_default_https_context = ssl._create_unverified_context
-    raw_data = feedparser.parse('https://stackoverflow.com/jobs/feed')
-    return raw_data.entries
+def process_job_data_with_pandas(job_data: List) -> List:
+    return
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
@@ -112,30 +97,6 @@ def job_data_adaptor(job_keys, job_data, processed_job):
                 else:
                     processed_job[key] = "NOT PROVIDED"
     return processed_job
-
-
-# get github data from API
-def get_github_jobs() -> List[Dict]:
-    all_jobs = []
-    # Link to API that retrieves job posting data
-    git_jobs_url = "https://jobs.github.com/positions.json?"
-    page_num = 1
-    # retrieves about 5 pages, puts all jobs in the job list
-    more_jobs = True
-    error_code_responses = 0
-    while more_jobs and error_code_responses < 10:  # after 10 errors will stop requesting
-        parameters = {'page': page_num}  # param to get jobs from a specific page
-        req = requests.get(url=git_jobs_url, params=parameters)  # get jobs
-        if str(req) == "<Response [200]>":  # if message is 200, then convert to json and print
-            jobs_from_api = req.json()
-            all_jobs.extend(jobs_from_api)  # move jobs from api list to job list
-            time.sleep(.1)
-            page_num = page_num + 1  # if successful then increment page counter
-            if len(jobs_from_api) < 50:  # if the length of the job page is less than 50 then it is last page
-                more_jobs = False
-        else:  # if the message is not 200 then it means request was not successful
-            error_code_responses += 1
-    return all_jobs
 
 
 # process all jobs, formatting data structure so it so it can be saved to database no problem
@@ -216,7 +177,7 @@ def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
         return
     #  data to be entered
     sql_data = (job_data['title'], job_data['job_type'], job_data['company'], job_data['location'],
-                job_data['description'], job_data['api_id'], job_data['url'], job_data['created_at'],
+                job_data['description'], job_data['api_id'], job_data['url'], parse_date(job_data['created_at']),
                 job_data['how_to_apply_info'], job_data['company_logo_url'], job_data['company_url'],
                 job_data['additional_info'])
     # SQL statement to insert data into jobs table
@@ -228,12 +189,58 @@ def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
     cursor.execute(sql_statement, sql_data)
 
 
-def parse_date(date: str) -> Dict:
+# go through a string for time and returns a string for time in the month day and year format
+def parse_date(date: str) -> str:
     date_dict = {}
-    #    months = ["Jan", "Feb", "Mar", "Apr", "June", "Jul", "Aug", "Oct", "Nov", "Dec"]
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    ones_digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    tens_digits = ['0', '1', '2', '3']
     date_parts = date.split(" ")
-    date_dict["day"] = date_parts[1]
-    date_dict["year"] = date_parts[4]
+
+    for time_data in date_parts:
+        if time_data in months:
+            date_dict['month'] = str(months.index(time_data) + 1)
+        elif len(time_data) == 4:  # if length is 4 then it is the year
+            date_dict['year'] = time_data
+        elif len(time_data) == 2:  # if length is 2 then it most likely the day
+            if time_data[0] in tens_digits and time_data[1] in ones_digits:
+                date_dict['day'] = time_data
+    return date_dict['month'] + "-" + date_dict['day'] + "-" + date_dict['year']
+
+
+def get_lat_long_coordinates_from_address(address: str) -> Tuple:
+    geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
+    location = geo_locator.geocode(address)
+    return location.latitude, location.longitude
+
+
+# problem if jobs can count as location and remote then what do we do?
+def get_all_remote_jobs(all_jobs: List) -> List:
+    all_remote_jobs = []
+    for job in all_jobs:
+        location = job['location'].lower()
+        if location.find('remote') != -1 or location == "not provided":
+            all_remote_jobs.append(job)
+    return all_remote_jobs
+
+
+# problem if jobs can count as location and remote then what do we do?
+def get_all_non_remote_jobs(all_jobs: List) -> List:
+    all_non_remote_jobs = []
+    for job in all_jobs:
+        location = job['location'].lower()
+        if location != "not provided":
+            all_non_remote_jobs.append(job)
+    return all_non_remote_jobs
+
+
+def get_all_company_jobs(all_jobs: List, company_name: str) -> List:
+    all_company_jobs = []
+    for job in all_jobs:
+        company = job['company'].lower()
+        if company == company_name.lower():
+            all_company_jobs.append(job)
+    return all_company_jobs
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
