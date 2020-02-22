@@ -9,11 +9,6 @@ import ssl
 # this is page I used for reference to learn request
 
 
-def main():
-    get_stack_overflow_jobs()
-    get_stack_overflow_jobs()
-
-
 # get data from stack overflow rss feed
 def get_stack_overflow_jobs():
     # monkey patch
@@ -45,6 +40,3 @@ def get_github_jobs() -> List[Dict]:
             error_code_responses += 1
     return all_jobs
 
-
-if __name__ == '__main__':  # if running from this file, then run the main function
-    main()

@@ -5,9 +5,9 @@ from typing import Dict
 from typing import Tuple
 import sqlite3
 import geopy
+from geotext import GeoText
 import numpy
 from geopy.exc import GeocoderQuotaExceeded
-import JobCollector
 
 
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
@@ -18,47 +18,55 @@ import JobCollector
 # reference to learn pandas, code is not copied but just used for referenced
 
 
-def main():
-    connection, cursor = open_db("job_db")
-    create_location_cache_table(cursor)
-    load_location_cache(cursor)
-    all_jobs = JobCollector.get_stack_overflow_jobs()
-    processed_jobs = process_all_stack_overflow_jobs(all_jobs)
-    nonremote_jobs = get_all_non_remote_jobs(processed_jobs)
-    data_for_plotly = process_job_data_into_dataframe(cursor, nonremote_jobs)
-    print(data_for_plotly)
-    close_db(connection)
-
-
-def process_job_data_into_dataframe(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
+# create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
+def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
     all_jobs = []
-    columns = ['title', 'lat', 'lon', 'additional_info']
+    # cols for data frame
+    columns = ['title', 'lat', 'lon', 'tags']
+    # cache of all locations already requested and successful returned answer
     locations_tried = load_location_cache(cursor)
     for job in job_data:
         location = job['location']
+        # keeps if location has already been requested
         if location in locations_tried:
+            # grab location then make array for numpy array and add to all all jobs
             coordinates = locations_tried[location]
             current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
             all_jobs.append(current_job_data)
         else:
+            # if not in location tried make new request
             coordinates = get_lat_long_coordinates_from_address(location)
             if coordinates is None:
-                continue
+                # if we can't get address from current string try to get cities with geo text then add
+                cities = GeoText(location).cities
+                for city in cities:
+                    if city in locations_tried:
+                        print(city)
+                        coordinates = locations_tried[city]
+                        current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
+                        all_jobs.append(current_job_data)
+                    else:
+                        coordinates = get_lat_long_coordinates_from_address(city)
+                        if coordinates is None:
+                            # if no coordinates is given skip
+                            continue
+                        elif coordinates is not False:
+                            locations_tried[coordinates[0]] = (coordinates[1], coordinates[2])
+                            current_job_data = [job['title'], coordinates[1], coordinates[2], job['additional_info']]
+                            all_jobs.append(current_job_data)
             elif coordinates is not False:
                 locations_tried[coordinates[0]] = (coordinates[1], coordinates[2])
                 current_job_data = [job['title'], coordinates[1], coordinates[2], job['additional_info']]
                 all_jobs.append(current_job_data)
             else:
-                print('error')
-                # adjust loop to repeat
-
+                print("http error")
+                # this means error
     add_all_locations_to_db(cursor, locations_tried)
     numpy_array = numpy.array(all_jobs)
-    dataframe = pandas.DataFrame(numpy_array, columns=columns)
-    dataframe['lat'] = dataframe['lat'].astype(float)
-    dataframe['lon'] = dataframe['lon'].astype(float)
-
-    return dataframe
+    data_frame = pandas.DataFrame(numpy_array, columns=columns)
+    data_frame['lat'] = data_frame['lat'].astype(float)
+    data_frame['lon'] = data_frame['lon'].astype(float)
+    return data_frame
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
@@ -275,7 +283,10 @@ def parse_date(date: str) -> str:
 
     for time_data in date_parts:
         if time_data in months:
-            date_dict['month'] = str(months.index(time_data) + 1)
+            month = str(months.index(time_data) + 1)
+            if len(month) == 1:
+                month = "0" + month
+            date_dict['month'] = month
         elif len(time_data) == 4:  # if length is 4 then it is the year
             date_dict['year'] = time_data
         elif len(time_data) == 2:  # if length is 2 then it most likely the day
@@ -343,6 +354,7 @@ def load_location_cache(cursor: sqlite3.Cursor):
     return all_locations
 
 
+# load all jobs from the database
 def load_jobs_from_db(cursor: sqlite3.Cursor) -> List:
     all_jobs = []
     sql_statement = 'SELECT * FROM JOBS;'
@@ -353,12 +365,22 @@ def load_jobs_from_db(cursor: sqlite3.Cursor) -> List:
     return all_jobs
 
 
+# get jobs in database that is after or on a certain date, format needed is YYYY-MM-DD
+def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str):
+    all_jobs = []
+    sql_statement = "SELECT * FROM JOBS WHERE julianday(created_at) >= julianday(?);"
+    results = list(cursor.execute(sql_statement, (date,)))
+    if len(results) == 0:
+        return False
+    for job in results:
+        job_data = process_db_job_data(job)
+        all_jobs.append(job_data)
+    return all_jobs
+
+
+# works if user does SELECT * from JOBS, takes the tuple data then makes a dictionary with the right keys
 def process_db_job_data(job: Tuple):
     job_data = {'title': job[1], 'job_type': job[2], 'company': job[3], 'location': job[4],
                 'description': job[5], 'url': job[7], 'created_at': job[8], 'how_to_apply_info': job[9],
                 'company_logo_url': job[10], 'company_url': job[11], 'additional_info': job[12]}
     return job_data
-
-
-if __name__ == '__main__':  # if running from this file, then run the main function
-    main()

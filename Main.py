@@ -18,8 +18,9 @@ def main():
     DataController.save_jobs_to_db(job_db_cursor, processed_stack_overflow_jobs)
 
     jobs_from_db = DataController.load_jobs_from_db(job_db_cursor)
+    # jobs_from_db = DataController.load_jobs_created_on_or_after_date(job_db_cursor, '2018-01-20')
     non_remote_jobs = DataController.get_all_non_remote_jobs(jobs_from_db)
-    jobs_data_frame = DataController.process_job_data_into_dataframe(loc_db_cursor, non_remote_jobs)
+    jobs_data_frame = DataController.process_job_data_into_data_frame(loc_db_cursor, non_remote_jobs)
 
     MapView.make_jobs_map(jobs_data_frame)
 

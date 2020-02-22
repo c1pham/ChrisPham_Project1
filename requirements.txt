@@ -6,4 +6,4 @@ geopy
 pandas
 plotly
 numpy
-julian
+geotext
