@@ -1,3 +1,4 @@
+from urllib.error import HTTPError
 import pandas
 from typing import List
 from typing import Dict
@@ -5,7 +6,9 @@ from typing import Tuple
 import sqlite3
 import geopy
 import numpy
+from geopy.exc import GeocoderQuotaExceeded
 import JobCollector
+
 
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
@@ -16,23 +19,46 @@ import JobCollector
 
 
 def main():
+    connection, cursor = open_db("job_db")
+    create_location_cache_table(cursor)
+    load_location_cache(cursor)
     all_jobs = JobCollector.get_stack_overflow_jobs()
     processed_jobs = process_all_stack_overflow_jobs(all_jobs)
     nonremote_jobs = get_all_non_remote_jobs(processed_jobs)
-    data_for_plotly = process_job_data_into_dataframe(nonremote_jobs)
+    data_for_plotly = process_job_data_into_dataframe(cursor, nonremote_jobs)
     print(data_for_plotly)
+    close_db(connection)
 
 
-def process_job_data_into_dataframe(job_data: List) -> pandas.DataFrame:
+def process_job_data_into_dataframe(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
     all_jobs = []
-    columns = ['title', 'lat', 'long']
+    columns = ['title', 'lat', 'lon', 'additional_info']
+    locations_tried = load_location_cache(cursor)
     for job in job_data:
         location = job['location']
-        coordinates = get_lat_long_coordinates_from_address(location)
-        current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
-        all_jobs.append(current_job_data)
+        if location in locations_tried:
+            coordinates = locations_tried[location]
+            current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
+            all_jobs.append(current_job_data)
+        else:
+            coordinates = get_lat_long_coordinates_from_address(location)
+            if coordinates is None:
+                continue
+            elif coordinates is not False:
+                locations_tried[coordinates[0]] = (coordinates[1], coordinates[2])
+                current_job_data = [job['title'], coordinates[1], coordinates[2], job['additional_info']]
+                all_jobs.append(current_job_data)
+            else:
+                print('error')
+                # adjust loop to repeat
+
+    add_all_locations_to_db(cursor, locations_tried)
     numpy_array = numpy.array(all_jobs)
-    return pandas.DataFrame(numpy_array, columns=columns)
+    dataframe = pandas.DataFrame(numpy_array, columns=columns)
+    dataframe['lat'] = dataframe['lat'].astype(float)
+    dataframe['lon'] = dataframe['lon'].astype(float)
+
+    return dataframe
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
@@ -183,9 +209,19 @@ def create_jobs_table(db_cursor: sqlite3.Cursor):
     );''')
 
 
+def create_location_cache_table(db_cursor: sqlite3.Cursor):
+    db_cursor.execute('''CREATE TABLE IF NOT EXISTS locations_cache(
+    location TEXT NOT NULL,
+    latitude TEXT NOT NULL,
+    longitude TEXT NOT NULL
+    );''')
+
+
 # this function is used to save individual jobs to database
 def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
     if job_data is False:
+        return
+    if is_unique_in_job_table(cursor, job_data) is False:
         return
     #  data to be entered
     sql_data = (job_data['title'], job_data['job_type'], job_data['company'], job_data['location'],
@@ -199,6 +235,34 @@ def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
     '''
     # insert new entry to table
     cursor.execute(sql_statement, sql_data)
+
+
+def add_all_locations_to_db(cursor: sqlite3.Cursor, location_data: Dict):
+    for key in location_data:
+        if is_unique_in_location_table(cursor, key) is False:
+            continue
+        #  data to be entered
+        sql_data = (key, location_data[key][0], location_data[key][1])
+        # SQL statement to insert data into jobs table
+        sql_statement = 'INSERT INTO LOCATIONS_CACHE (location, latitude, longitude)  VALUES (?, ?, ?);'
+        # insert new entry to table
+        cursor.execute(sql_statement, sql_data)
+
+
+def is_unique_in_job_table(cursor: sqlite3.Cursor, job_data: Dict):
+    sql_data = (job_data['api_id'],)
+    # SQL statement to insert data into jobs table
+    sql_statement = 'SELECT * FROM JOBS WHERE api_id = ?;'
+    results = cursor.execute(sql_statement, sql_data)
+    return len(list(results)) == 0
+
+
+def is_unique_in_location_table(cursor: sqlite3.Cursor, address: str):
+    sql_data = (address,)
+    # SQL statement to insert data into jobs table
+    sql_statement = 'SELECT * FROM LOCATIONS_CACHE WHERE location = ?;'
+    results = cursor.execute(sql_statement, sql_data)
+    return len(list(results)) == 0
 
 
 # go through a string for time and returns a string for time in the month day and year format
@@ -217,14 +281,25 @@ def parse_date(date: str) -> str:
         elif len(time_data) == 2:  # if length is 2 then it most likely the day
             if time_data[0] in tens_digits and time_data[1] in ones_digits:
                 date_dict['day'] = time_data
-    return date_dict['month'] + "-" + date_dict['day'] + "-" + date_dict['year']
+    return date_dict['year'] + "-" + date_dict['month'] + "-" + date_dict['day']
 
 
-def get_lat_long_coordinates_from_address(address: str) -> Tuple:
+def get_lat_long_coordinates_from_address(address: str):
     geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
-    location = geo_locator.geocode(address)
+    location = None
+    try:
+        location = geo_locator.geocode(address, timeout=600)
+    except HTTPError:
+        return False
+    except GeocoderQuotaExceeded:
+        return False
+
     print(location)
-    return location.latitude, location.longitude
+    if location is None:
+        print(address + " could not find location")
+        return None
+
+    return address, location.latitude, location.longitude
 
 
 # problem if jobs can count as location and remote then what do we do?
@@ -254,6 +329,35 @@ def get_all_company_jobs(all_jobs: List, company_name: str) -> List:
         if company == company_name.lower():
             all_company_jobs.append(job)
     return all_company_jobs
+
+
+# get all location data from db then make return a dictionary with the keys being the location
+# and the coordinates in a tuple being the value
+def load_location_cache(cursor: sqlite3.Cursor):
+    all_locations = {}
+    sql_statement = 'SELECT * FROM LOCATIONS_CACHE;'
+    results = cursor.execute(sql_statement)
+    location_cache = list(results)
+    for location in location_cache:
+        all_locations[location[0]] = (location[1], location[2])
+    return all_locations
+
+
+def load_jobs_from_db(cursor: sqlite3.Cursor) -> List:
+    all_jobs = []
+    sql_statement = 'SELECT * FROM JOBS;'
+    results = list(cursor.execute(sql_statement))
+    for job in results:
+        job_data = process_db_job_data(job)
+        all_jobs.append(job_data)
+    return all_jobs
+
+
+def process_db_job_data(job: Tuple):
+    job_data = {'title': job[1], 'job_type': job[2], 'company': job[3], 'location': job[4],
+                'description': job[5], 'url': job[7], 'created_at': job[8], 'how_to_apply_info': job[9],
+                'company_logo_url': job[10], 'company_url': job[11], 'additional_info': job[12]}
+    return job_data
 
 
 if __name__ == '__main__':  # if running from this file, then run the main function
