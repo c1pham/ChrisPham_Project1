@@ -1,4 +1,3 @@
-import plotly.graph_objects as go
 import pandas as pd
 import ssl
 import plotly.express as px
@@ -15,4 +14,3 @@ def make_jobs_map(data: pd.DataFrame):
     fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
     fig.show()
-
