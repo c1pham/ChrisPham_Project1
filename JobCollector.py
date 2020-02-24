@@ -39,4 +39,3 @@ def get_github_jobs() -> List[Dict]:
         else:  # if the message is not 200 then it means request was not successful
             error_code_responses += 1
     return all_jobs
-

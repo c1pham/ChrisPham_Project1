@@ -81,8 +81,6 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
                 current_job_data = [title_info, location_data[1], location_data[2]]
                 all_jobs.append(current_job_data)
-            else:
-                print("http error")
 
     add_all_locations_to_db(cursor, locations_tried)  # put new locations into db
 
