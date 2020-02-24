@@ -57,25 +57,11 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
             location_data = get_lat_long_coordinates_from_address(location)
             if location_data is None:
                 # if we can't get address from current string try to get cities with geo text then add
-                cities = GeoText(location).cities
-                for city in cities:
-                    # only add one of the multiple cities from geotext
-                    # if in locations tried add it with the coordinates, if not use class function to find coordinates
-                    if city in locations_tried:
-                        cache_coordinates = locations_tried[city]
-                        current_job_data = [title_info, cache_coordinates[0], cache_coordinates[1]]
-                        all_jobs.append(current_job_data)
-                        break
-                    else:
-                        location_data = get_lat_long_coordinates_from_address(city)
-                        if location_data is None:
-                            continue
-                        elif location_data is not False:
-                            locations_tried[location_data[0]] = (location_data[1], location_data[2])
+                plotly_data = get_one_city_from_address(location, locations_tried, title_info)
 
-                            current_job_data = [title_info, location_data[1], location_data[2]]
-                            all_jobs.append(current_job_data)
-                            break
+                if plotly_data is not False:
+                    all_jobs.append(plotly_data)
+
             elif location_data is not False:
                 # if we got something from class function to find coordinates then add to list
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
@@ -355,6 +341,24 @@ def get_lat_long_coordinates_from_address(address: str):
         return None
 
     return address, location.latitude, location.longitude
+
+
+def get_one_city_from_address(location: str, locations_tried: Dict, info: str):
+    cities = GeoText(location).cities
+    for city in cities:
+        # only add one of the multiple cities from geotext
+        # if in locations tried add it with the coordinates, if not use class function to find coordinates
+        if city in locations_tried:
+            cache_coordinates = locations_tried[city]
+            return [info, cache_coordinates[0], cache_coordinates[1]]
+        else:
+            location_data = get_lat_long_coordinates_from_address(city)
+            if location_data is None:
+                continue
+            elif location_data is not False:
+                locations_tried[location_data[0]] = (location_data[1], location_data[2])
+                return [info, location_data[1], location_data[2]]
+    return False
 
 
 # problem if jobs can count as location and remote then what do we do?
