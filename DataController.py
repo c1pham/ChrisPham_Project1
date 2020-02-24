@@ -8,7 +8,7 @@ import geopy
 from geotext import GeoText
 import numpy
 from geopy.exc import GeocoderQuotaExceeded
-
+import re
 
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
@@ -18,52 +18,96 @@ from geopy.exc import GeocoderQuotaExceeded
 # reference to learn pandas, code is not copied but just used for referenced
 
 
+# https://www.dotnetperls.com/remove-html-tags-python
+# reference to remove html tags
+# format text to fit plotly hover text, however this may be used for text formatting later on GUI
+
+
+def format_text_to_fit_hover_text(text: str):
+    text_without_html = re.sub("<.*?>", '', text)  # remove html
+    words = text_without_html.split(" ")
+    formatted_text = ""
+    current_line_size = 0
+    for word in words:  # add words to formatted text
+        if current_line_size > 80:  # add line break if line is too long
+            formatted_text += "<br>"
+            current_line_size = 0
+        formatted_text += word + " "
+        current_line_size += len(word)
+    return formatted_text
+
+
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
 def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
     all_jobs = []
-    # cols for data frame
-    columns = ['title', 'lat', 'lon', 'tags']
-    # cache of all locations already requested and successful returned answer
-    locations_tried = load_location_cache(cursor)
-    for job in job_data:
-        location = job['location']
+    locations_tried = load_location_cache(cursor)  # previous locations checked before
+    columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
+
+    for job_posting in job_data:
+        location = job_posting['location']
+        title_info = job_posting['title'] + " Tags: " + job_posting['additional_info']
         # keeps if location has already been requested
         if location in locations_tried:
             # grab location then make array for numpy array and add to all all jobs
-            coordinates = locations_tried[location]
-            current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
+            cache_coordinates = locations_tried[location]
+            current_job_data = [title_info, cache_coordinates[0], cache_coordinates[1]]
             all_jobs.append(current_job_data)
         else:
             # if not in location tried make new request
-            coordinates = get_lat_long_coordinates_from_address(location)
-            if coordinates is None:
+            location_data = get_lat_long_coordinates_from_address(location)
+            if location_data is None:
                 # if we can't get address from current string try to get cities with geo text then add
                 cities = GeoText(location).cities
                 for city in cities:
+                    # only add one of the multiple cities from geotext
+                    # if in locations tried add it with the coordinates, if not use class function to find coordinates
                     if city in locations_tried:
-                        print(city)
-                        coordinates = locations_tried[city]
-                        current_job_data = [job['title'], coordinates[0], coordinates[1], job['additional_info']]
+                        cache_coordinates = locations_tried[city]
+                        current_job_data = [title_info, cache_coordinates[0], cache_coordinates[1]]
                         all_jobs.append(current_job_data)
+                        break
                     else:
-                        coordinates = get_lat_long_coordinates_from_address(city)
-                        if coordinates is None:
-                            # if no coordinates is given skip
+                        location_data = get_lat_long_coordinates_from_address(city)
+                        if location_data is None:
                             continue
-                        elif coordinates is not False:
-                            locations_tried[coordinates[0]] = (coordinates[1], coordinates[2])
-                            current_job_data = [job['title'], coordinates[1], coordinates[2], job['additional_info']]
+                        elif location_data is not False:
+                            locations_tried[location_data[0]] = (location_data[1], location_data[2])
+
+                            current_job_data = [title_info, location_data[1], location_data[2]]
                             all_jobs.append(current_job_data)
-            elif coordinates is not False:
-                locations_tried[coordinates[0]] = (coordinates[1], coordinates[2])
-                current_job_data = [job['title'], coordinates[1], coordinates[2], job['additional_info']]
+                            break
+            elif location_data is not False:
+                # if we got something from class function to find coordinates then add to list
+                locations_tried[location_data[0]] = (location_data[1], location_data[2])
+                current_job_data = [title_info, location_data[1], location_data[2]]
                 all_jobs.append(current_job_data)
             else:
                 print("http error")
-                # this means error
-    add_all_locations_to_db(cursor, locations_tried)
-    numpy_array = numpy.array(all_jobs)
+
+    add_all_locations_to_db(cursor, locations_tried)  # put new locations into db
+
+    coordinates_used_for_jobs = {}
+    # combine places with duplicate latitude and longitude coordinates and combine them into 1 entry
+    for job_posting in all_jobs:
+        key = str(job_posting[1]) + " " + str(job_posting[2])
+        if key in coordinates_used_for_jobs:
+            coordinates_used_for_jobs[key] += "<br>" + job_posting[0]
+        else:
+            coordinates_used_for_jobs[key] = job_posting[0]
+
+    # now take coordinates_used_for_jobs info to make array for data frame
+    all_jobs_no_repeats = []
+    for key in coordinates_used_for_jobs:
+        coordinates = key.split(" ")
+        latitude = coordinates[0]
+        longitude = coordinates[1]
+        info = coordinates_used_for_jobs[key]
+        plotly_data_point = [info, latitude, longitude]
+        all_jobs_no_repeats.append(plotly_data_point)
+
+    numpy_array = numpy.array(all_jobs_no_repeats)
     data_frame = pandas.DataFrame(numpy_array, columns=columns)
+    # lat and lon are floats because they will be use for coordinates
     data_frame['lat'] = data_frame['lat'].astype(float)
     data_frame['lon'] = data_frame['lon'].astype(float)
     return data_frame
@@ -103,9 +147,10 @@ def process_stack_overflow_job(job_data: Dict) -> Dict:
         processed_job['additional_info'] = "NOT PROVIDED"
     else:
         tags = job_data['tags']
-        tags_into_database = "tags: "
+        tags_into_database = ""
         for tag in tags:
-            tags_into_database += " " + tag['term']
+            tags_into_database += tag['term'] + ", "
+        tags_into_database = tags_into_database.rstrip(", ")
         processed_job['additional_info'] = tags_into_database
     return processed_job
 
@@ -217,6 +262,7 @@ def create_jobs_table(db_cursor: sqlite3.Cursor):
     );''')
 
 
+# create table to store previous locations
 def create_location_cache_table(db_cursor: sqlite3.Cursor):
     db_cursor.execute('''CREATE TABLE IF NOT EXISTS locations_cache(
     location TEXT NOT NULL,
@@ -283,7 +329,7 @@ def parse_date(date: str) -> str:
 
     for time_data in date_parts:
         if time_data in months:
-            month = str(months.index(time_data) + 1)
+            month = str(months.index(time_data) + 1)  # add one because indexing starts at 0 when months start from 1
             if len(month) == 1:
                 month = "0" + month
             date_dict['month'] = month
