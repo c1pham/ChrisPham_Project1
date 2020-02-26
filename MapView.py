@@ -17,5 +17,5 @@ def make_jobs_map(data: pandas.DataFrame):
     fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r": 20, "t": 20, "l": 20, "b": 20})
     # make map appear on browser
-    #fig.show()
+    # fig.show()
     return fig
