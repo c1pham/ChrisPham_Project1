@@ -41,7 +41,6 @@ def format_text_to_fit_hover_text(text: str):
 def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
     all_jobs = []
     locations_tried = load_location_cache(cursor)  # previous locations checked before
-    coordinates_to_address = {}
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
 
     for job_posting in job_data:

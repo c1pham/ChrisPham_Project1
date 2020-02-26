@@ -12,7 +12,7 @@ current_dataset = Main.main()
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 app.layout = html.Div(children=[
-    html.H1(children='Hello Job Seeker or Looker'),
+    html.H1(children='Hello Job Seeker'),
 
     html.Div(children='''
         A Map of Developer Jobs around the world From Github API and Stackoverflow RSS feed.
