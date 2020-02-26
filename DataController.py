@@ -41,6 +41,7 @@ def format_text_to_fit_hover_text(text: str):
 def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
     all_jobs = []
     locations_tried = load_location_cache(cursor)  # previous locations checked before
+    coordinates_to_address = {}
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
 
     for job_posting in job_data:
@@ -53,11 +54,10 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
             current_job_data = [title_info, cache_coordinates[0], cache_coordinates[1]]
             all_jobs.append(current_job_data)
         else:
-            # if not in location tried make new request
             location_data = get_lat_long_coordinates_from_address(location)
             if location_data is None:
                 # if we can't get address from current string try to get cities with geo text then add
-                plotly_data = get_one_city_from_address(location, locations_tried, title_info)
+                plotly_data = get_one_place_from_address(location, locations_tried, title_info)
 
                 if plotly_data is not False:
                     all_jobs.append(plotly_data)
@@ -103,7 +103,7 @@ def process_all_stack_overflow_jobs(all_jobs):
     for job in all_jobs:
         processed_job = process_stack_overflow_job(job)
         if processed_jobs is False:
-            pass
+            continue
         processed_jobs.append(processed_job)
     return processed_jobs
 
@@ -331,8 +331,10 @@ def get_lat_long_coordinates_from_address(address: str):
     try:
         location = geo_locator.geocode(address, timeout=600)
     except HTTPError:
+        print("http error")
         return False
     except GeocoderQuotaExceeded:
+        print("geocoder quota exceeded error")
         return False
 
     print(location)
@@ -340,22 +342,40 @@ def get_lat_long_coordinates_from_address(address: str):
         print(address + " could not find location")
         return None
 
-    return address, location.latitude, location.longitude
+    return address, location.latitude, location.longitude, location
 
 
-def get_one_city_from_address(location: str, locations_tried: Dict, info: str):
+def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
     cities = GeoText(location).cities
     for city in cities:
         # only add one of the multiple cities from geotext
         # if in locations tried add it with the coordinates, if not use class function to find coordinates
         if city in locations_tried:
             cache_coordinates = locations_tried[city]
+
             return [info, cache_coordinates[0], cache_coordinates[1]]
         else:
             location_data = get_lat_long_coordinates_from_address(city)
             if location_data is None:
                 continue
             elif location_data is not False:
+                locations_tried[location_data[0]] = (location_data[1], location_data[2])
+                return [info, location_data[1], location_data[2]]
+
+    # this does the same as the code before but with countries
+
+    return get_one_country_from_address(location, locations_tried, info)
+
+
+def get_one_country_from_address(location: str, locations_tried: Dict, info: str):
+    countries = GeoText(location).countries
+    for country in countries:
+        if country in locations_tried:
+            cache_coordinates = locations_tried[country]
+            return [info, cache_coordinates[0], cache_coordinates[1]]
+        else:
+            location_data = get_lat_long_coordinates_from_address(country)
+            if location_data is not False and not None:
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
                 return [info, location_data[1], location_data[2]]
     return False
