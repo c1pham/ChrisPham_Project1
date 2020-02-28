@@ -104,9 +104,8 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
 
     if selected_jobs is False:
         # figure out how to make empty map
-        jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor, all_jobs_from_db)
         error_message = "Error jobs from this time"
-        return MapView.make_jobs_map(jobs_data_frame), error_message
+        return current_dataset, error_message
 
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs)
     print(first_tech + "first tag")
@@ -118,20 +117,16 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
         if tech_jobs is not False:
             selected_jobs = tech_jobs
         else:
-            jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor,
-                                                                                           all_jobs_from_db)
             error_message = "Error no jobs with these tags"
-            return MapView.make_jobs_map(jobs_data_frame), error_message
+            return current_dataset, error_message
 
     if selected_company != "":
         company_jobs = DataController.get_all_company_jobs(selected_jobs, selected_company)
         if company_jobs is not False:
             selected_jobs = company_jobs
         else:
-            jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor,
-                                                                                           all_jobs_from_db)
             error_message = "Error no jobs from this company"
-            return MapView.make_jobs_map(jobs_data_frame), error_message
+            return current_dataset, error_message
     else:
         selected_jobs = all_jobs_from_db
 

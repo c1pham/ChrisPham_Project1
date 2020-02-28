@@ -347,9 +347,9 @@ def get_lat_long_coordinates_from_address(address: str):
         print("geocoder quota exceeded error")
         return False
 
-    #print(location)
+    # print(location)
     if location is None:
-        #print(address + " could not find location")
+        # print(address + " could not find location")
         return None
 
     return address, location.latitude, location.longitude, location
