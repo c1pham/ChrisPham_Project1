@@ -16,6 +16,7 @@ def make_jobs_map(data: pandas.DataFrame):
                             color_discrete_sequence=["fuchsia"], zoom=2, height=500)
     fig.update_layout(mapbox_style="open-street-map")
     fig.update_layout(margin={"r": 50, "t": 20, "l": 50, "b": 20})
-    # make map appear on browser
-    # fig.show()
     return fig
+
+
+

@@ -42,6 +42,7 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
     all_jobs = []
     locations_tried = load_location_cache(cursor)  # previous locations checked before
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
+    remote_or_unknown_locations = []
 
     for job_posting in job_data:
         location = job_posting['location']
@@ -60,7 +61,8 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
 
                 if plotly_data is not False:
                     all_jobs.append(plotly_data)
-
+                if plotly_data is False:
+                    remote_or_unknown_locations.append(job_posting)
             elif location_data is not False:
                 # if we got something from class function to find coordinates then add to list
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
@@ -93,7 +95,7 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
     # lat and lon are floats because they will be use for coordinates
     data_frame['lat'] = data_frame['lat'].astype(float)
     data_frame['lon'] = data_frame['lon'].astype(float)
-    return data_frame
+    return data_frame, remote_or_unknown_locations
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
@@ -324,6 +326,15 @@ def parse_date(date: str) -> str:
     return date_dict['year'] + "-" + date_dict['month'] + "-" + date_dict['day']
 
 
+# given a date time, parse the info into YYYY-MM-DD format for db use
+def parse_date_time(date: str):
+    date_parts = date.split("-")
+    year = date_parts[0]
+    month = date_parts[1]
+    day = date_parts[2][:2]
+    return year + "-" + month + "-" + day
+
+
 def get_lat_long_coordinates_from_address(address: str):
     geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
     location = None
@@ -336,9 +347,9 @@ def get_lat_long_coordinates_from_address(address: str):
         print("geocoder quota exceeded error")
         return False
 
-    print(location)
+    #print(location)
     if location is None:
-        print(address + " could not find location")
+        #print(address + " could not find location")
         return None
 
     return address, location.latitude, location.longitude, location
@@ -351,7 +362,6 @@ def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
         # if in locations tried add it with the coordinates, if not use class function to find coordinates
         if city in locations_tried:
             cache_coordinates = locations_tried[city]
-
             return [info, cache_coordinates[0], cache_coordinates[1]]
         else:
             location_data = get_lat_long_coordinates_from_address(city)
@@ -360,9 +370,7 @@ def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
             elif location_data is not False:
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
                 return [info, location_data[1], location_data[2]]
-
     # this does the same as the code before but with countries
-
     return get_one_country_from_address(location, locations_tried, info)
 
 
@@ -407,6 +415,27 @@ def get_all_company_jobs(all_jobs: List, company_name: str) -> List:
         if company == company_name.lower():
             all_company_jobs.append(job)
     return all_company_jobs
+
+
+# gets job that has at least one of the technologies stored in tags
+def get_jobs_by_technology(all_jobs: List, tags: List) -> List:
+    all_jobs_with_technology = []
+    for job in all_jobs:
+        has_technology = False
+        for technology in tags:
+            if technology == "":
+                continue
+            elif job['additional_info'] != "NOT PROVIDED" and job['additional_info'].find(technology) != -1:
+                has_technology = True
+            elif job['title'].find(technology) != -1:
+                has_technology = True
+            elif job['description'].find(technology) != -1:
+                has_technology = True
+        if has_technology is True:
+            all_jobs_with_technology.append(job)
+    if len(all_jobs) == 0:
+        return False
+    return all_jobs_with_technology
 
 
 # get all location data from db then make return a dictionary with the keys being the location
