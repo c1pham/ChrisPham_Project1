@@ -13,7 +13,7 @@ import MapView
 # reference to dash state
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-current_dataset = Main.main()
+figure_with_all_non_remote_jobs_on_map = Main.main()  # figure of map box data
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
@@ -80,7 +80,7 @@ app.layout = html.Div(children=[
     html.Div(id="error"),
     dcc.Graph(
         id='jobs-map',
-        figure=current_dataset
+        figure=figure_with_all_non_remote_jobs_on_map
     ),
     html.Div(children=[
         html.Div(
@@ -111,14 +111,14 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
     loc_db_connection, loc_db_cursor = DataController.open_db("location_db")
 
     if DataController.is_company_in_db(job_db_cursor, selected_company) is False:
-        return current_dataset, error_message
+        return figure_with_all_non_remote_jobs_on_map, error_message
 
     selected_jobs = DataController.load_jobs_created_on_or_after_date(job_db_cursor,
                                                                       DataController.parse_date_time(selected_time))
 
     if selected_jobs is False:
         # figure out how to make empty map
-        return current_dataset, error_message
+        return figure_with_all_non_remote_jobs_on_map, error_message
 
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs)
 
@@ -127,14 +127,14 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
         if tech_jobs is not False:
             selected_jobs = tech_jobs
         else:
-            return current_dataset, error_message
+            return figure_with_all_non_remote_jobs_on_map, error_message
 
     if selected_company != "":
         company_jobs = DataController.get_all_company_jobs(selected_jobs, selected_company)
         if company_jobs is not False:
             selected_jobs = company_jobs
         else:
-            return current_dataset, error_message
+            return figure_with_all_non_remote_jobs_on_map, error_message
 
     jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor, selected_jobs)
 
