@@ -69,6 +69,19 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
                 all_jobs.append(current_job_data)
 
     add_all_locations_to_db(cursor, locations_tried)  # put new locations into db
+    all_jobs_no_repeats = process_job_data_into_single_shared_map_box_points(all_jobs)
+
+    numpy_array = numpy.array(all_jobs_no_repeats)
+    data_frame = pandas.DataFrame(numpy_array, columns=columns)
+    # lat and lon are floats because they will be use for coordinates
+    data_frame['lat'] = data_frame['lat'].astype(float)
+    data_frame['lon'] = data_frame['lon'].astype(float)
+    return data_frame, remote_or_unknown_locations
+
+
+# takes in a list or list that have order of objects job info, lat, lon
+# returns a list or list with all the job info with the same coordinates being in the same string
+def process_job_data_into_single_shared_map_box_points(all_jobs: List):
     coordinates_used_for_jobs_for_mapbox = {}
     # combine places with duplicate latitude and longitude coordinates and combine them into 1 entry
     for job_posting in all_jobs:
@@ -77,8 +90,6 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
             coordinates_used_for_jobs_for_mapbox[key] += "<br>" + job_posting[0]
         else:
             coordinates_used_for_jobs_for_mapbox[key] = job_posting[0]
-
-    # now take coordinates_used_for_jobs info to make array for data frame
     all_jobs_no_repeats = []
     for key in coordinates_used_for_jobs_for_mapbox:
         coordinates = key.split(" ")
@@ -87,13 +98,7 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
         info = coordinates_used_for_jobs_for_mapbox[key]
         plotly_data_point = [info, latitude, longitude]
         all_jobs_no_repeats.append(plotly_data_point)
-
-    numpy_array = numpy.array(all_jobs_no_repeats)
-    data_frame = pandas.DataFrame(numpy_array, columns=columns)
-    # lat and lon are floats because they will be use for coordinates
-    data_frame['lat'] = data_frame['lat'].astype(float)
-    data_frame['lon'] = data_frame['lon'].astype(float)
-    return data_frame, remote_or_unknown_locations
+    return all_jobs_no_repeats
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function

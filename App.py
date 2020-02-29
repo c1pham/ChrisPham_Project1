@@ -21,7 +21,7 @@ app.layout = html.Div(children=[
     html.H1(children='Hello Job Seeker'),
 
     html.Div(children='''
-        A Map of Developer Jobs around the world From Github API and Stackoverflow RSS feed.
+        A Map of Developer Jobs around the world From Github API and Stackoverflow RSS feed. <br> test
     ''', className='row'),
     html.Div(children=html.H3(
         children="Job Filters"
