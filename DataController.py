@@ -43,7 +43,6 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
     locations_tried = load_location_cache(cursor)  # previous locations checked before
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
     remote_or_unknown_locations = []
-    coordinates_with_job_data = {}
 
     for job_posting in job_data:
         location = job_posting['location']
