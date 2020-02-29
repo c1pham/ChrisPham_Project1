@@ -94,7 +94,7 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
     # lat and lon are floats because they will be use for coordinates
     data_frame['lat'] = data_frame['lat'].astype(float)
     data_frame['lon'] = data_frame['lon'].astype(float)
-    return data_frame, remote_or_unknown_locations, coordinates_with_jobs_data
+    return data_frame, remote_or_unknown_locations
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function

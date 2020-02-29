@@ -136,12 +136,7 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
         else:
             return current_dataset, error_message
 
-    jobs_data_frame, remote_jobs, coords_with_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor,
-                                                                                                     selected_jobs)
-    for key in coords_with_jobs:
-        print(key)
-        for data in coords_with_jobs[key]:
-            print(data)
+    jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor, selected_jobs)
 
     error_message = "Successful"
     return MapView.make_jobs_map(jobs_data_frame), error_message
