@@ -38,11 +38,12 @@ def format_text_to_fit_hover_text(text: str):
 
 
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
-def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> pandas.DataFrame:
+def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
     all_jobs = []
     locations_tried = load_location_cache(cursor)  # previous locations checked before
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
     remote_or_unknown_locations = []
+    coordinates_with_job_data = {}
 
     for job_posting in job_data:
         location = job_posting['location']
@@ -58,7 +59,6 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
             if location_data is None:
                 # if we can't get address from current string try to get cities with geo text then add
                 plotly_data = get_one_place_from_address(location, locations_tried, title_info)
-
                 if plotly_data is not False:
                     all_jobs.append(plotly_data)
                 if plotly_data is False:
@@ -70,23 +70,22 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
                 all_jobs.append(current_job_data)
 
     add_all_locations_to_db(cursor, locations_tried)  # put new locations into db
-
-    coordinates_used_for_jobs = {}
+    coordinates_used_for_jobs_for_mapbox = {}
     # combine places with duplicate latitude and longitude coordinates and combine them into 1 entry
     for job_posting in all_jobs:
         key = str(job_posting[1]) + " " + str(job_posting[2])
-        if key in coordinates_used_for_jobs:
-            coordinates_used_for_jobs[key] += "<br>" + job_posting[0]
+        if key in coordinates_used_for_jobs_for_mapbox:
+            coordinates_used_for_jobs_for_mapbox[key] += "<br>" + job_posting[0]
         else:
-            coordinates_used_for_jobs[key] = job_posting[0]
+            coordinates_used_for_jobs_for_mapbox[key] = job_posting[0]
 
     # now take coordinates_used_for_jobs info to make array for data frame
     all_jobs_no_repeats = []
-    for key in coordinates_used_for_jobs:
+    for key in coordinates_used_for_jobs_for_mapbox:
         coordinates = key.split(" ")
         latitude = coordinates[0]
         longitude = coordinates[1]
-        info = coordinates_used_for_jobs[key]
+        info = coordinates_used_for_jobs_for_mapbox[key]
         plotly_data_point = [info, latitude, longitude]
         all_jobs_no_repeats.append(plotly_data_point)
 
@@ -95,7 +94,7 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List) -> 
     # lat and lon are floats because they will be use for coordinates
     data_frame['lat'] = data_frame['lat'].astype(float)
     data_frame['lon'] = data_frame['lon'].astype(float)
-    return data_frame, remote_or_unknown_locations
+    return data_frame, remote_or_unknown_locations, coordinates_with_jobs_data
 
 
 # takes all stack overflow data and makes a list of dictionaries to ready data for save to db function
@@ -408,24 +407,29 @@ def get_all_non_remote_jobs(all_jobs: List) -> List:
     return all_non_remote_jobs
 
 
-def get_all_company_jobs(all_jobs: List, company_name: str) -> List:
+def get_all_company_jobs(all_jobs: List, company_name: str):
     all_company_jobs = []
     for job in all_jobs:
         company = job['company'].lower()
         if company == company_name.lower():
             all_company_jobs.append(job)
+    if len(all_company_jobs) == 0:
+        return False
     return all_company_jobs
 
 
 # gets job that has at least one of the technologies stored in tags
-def get_jobs_by_technology(all_jobs: List, tags: List) -> List:
+def get_jobs_by_technology(all_jobs: List, ui_tags: List) -> List:
     all_jobs_with_technology = []
+    tags = []
+    for tag in ui_tags:
+        if tag != "":
+            tags.append(tag)
+
     for job in all_jobs:
         has_technology = False
         for technology in tags:
-            if technology == "":
-                continue
-            elif job['additional_info'] != "NOT PROVIDED" and job['additional_info'].find(technology) != -1:
+            if job['additional_info'] != "NOT PROVIDED" and job['additional_info'].find(technology) != -1:
                 has_technology = True
             elif job['title'].find(technology) != -1:
                 has_technology = True
@@ -433,6 +437,7 @@ def get_jobs_by_technology(all_jobs: List, tags: List) -> List:
                 has_technology = True
         if has_technology is True:
             all_jobs_with_technology.append(job)
+
     if len(all_jobs) == 0:
         return False
     return all_jobs_with_technology
@@ -472,6 +477,12 @@ def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str):
         job_data = process_db_job_data(job)
         all_jobs.append(job_data)
     return all_jobs
+
+
+# this is so app.py can reject looking through data if a company does not exist at all
+def is_company_in_db(cursor: sqlite3.Cursor, company_name: str):
+    results = cursor.execute('SELECT * FROM JOBS WHERE lower(company) = ?;', (company_name.lower(),))
+    return len(list(results))
 
 
 # works if user does SELECT * from JOBS, takes the tuple data then makes a dictionary with the right keys

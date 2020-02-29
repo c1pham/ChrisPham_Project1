@@ -27,7 +27,8 @@ def main():
     # get all jobs from db
     jobs_from_db = DataController.load_jobs_from_db(job_db_cursor)
     non_remote_jobs = DataController.get_all_non_remote_jobs(jobs_from_db)
-    jobs_data_frame, remote_or_unknown_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor, non_remote_jobs)
+    jobs_data_frame, remote_or_unknown_jobs, jobs_with_coords = DataController.process_job_data_into_data_frame(
+        loc_db_cursor, non_remote_jobs)
     print(remote_or_unknown_jobs)
     figure = MapView.make_jobs_map(jobs_data_frame)
     # save jobs and location cache by committing to db

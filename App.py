@@ -81,6 +81,17 @@ app.layout = html.Div(children=[
     dcc.Graph(
         id='jobs-map',
         figure=current_dataset
+    ),
+    html.Div(children=[
+        html.Div(
+            id="selected-job-info",
+            className='six columns'
+        ),
+        html.Div(
+            id="remote-jobs-info",
+            className='six columns'
+        )
+    ], className='row'
     )
 ])
 
@@ -95,29 +106,27 @@ app.layout = html.Div(children=[
                State('tech-3-selection', 'value')])
 def update_map(n_clicks, selected_time, selected_company, first_tech, second_tech, third_tech):
     print(n_clicks)
-    error_message = ''
+    error_message = 'ERROR: no jobs with these criteria'
     job_db_connection, job_db_cursor = DataController.open_db("jobs_db")
     loc_db_connection, loc_db_cursor = DataController.open_db("location_db")
-    all_jobs_from_db = DataController.load_jobs_from_db(job_db_cursor)
+
+    if DataController.is_company_in_db(job_db_cursor, selected_company) is False:
+        return current_dataset, error_message
+
     selected_jobs = DataController.load_jobs_created_on_or_after_date(job_db_cursor,
                                                                       DataController.parse_date_time(selected_time))
 
     if selected_jobs is False:
         # figure out how to make empty map
-        error_message = "Error jobs from this time"
         return current_dataset, error_message
 
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs)
-    print(first_tech + "first tag")
-    print(second_tech + "second tag")
-    print(third_tech + "third tag")
 
     if first_tech != '' or second_tech != '' or third_tech != '':
         tech_jobs = DataController.get_jobs_by_technology(non_remote_jobs, [first_tech, second_tech, third_tech])
         if tech_jobs is not False:
             selected_jobs = tech_jobs
         else:
-            error_message = "Error no jobs with these tags"
             return current_dataset, error_message
 
     if selected_company != "":
@@ -125,13 +134,24 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
         if company_jobs is not False:
             selected_jobs = company_jobs
         else:
-            error_message = "Error no jobs from this company"
             return current_dataset, error_message
-    else:
-        selected_jobs = all_jobs_from_db
 
-    jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor, selected_jobs)
+    jobs_data_frame, remote_jobs, coords_with_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor,
+                                                                                                     selected_jobs)
+    for key in coords_with_jobs:
+        print(key)
+        for data in coords_with_jobs[key]:
+            print(data)
+
+    error_message = "Successful"
     return MapView.make_jobs_map(jobs_data_frame), error_message
+
+
+@app.callback(Output('selected-job-info', 'children'),
+              [Input('jobs-map', 'clickData')])
+def get_job_data_from_graph_click(click_data):
+    print(click_data)
+    return click_data['points'][0]['hovertext']
 
 
 if __name__ == '__main__':
