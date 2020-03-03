@@ -7,8 +7,9 @@ import sqlite3
 import geopy
 from geotext import GeoText
 import numpy
-from geopy.exc import GeocoderQuotaExceeded
+from geopy.exc import GeocoderQuotaExceeded, GeocoderTimedOut
 import re
+import dash_html_components as html
 
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
@@ -16,15 +17,19 @@ import re
 # reference for geopy documentation
 # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html
 # reference to learn pandas, code is not copied but just used for referenced
-
-
 # https://www.dotnetperls.com/remove-html-tags-python
 # reference to remove html tags
 # format text to fit plotly hover text, however this may be used for text formatting later on GUI
 
 
+def remove_html_tags_from_text(text: str):
+    text_without_html_tags = re.sub("<.*?>", ' ', text).replace("&nbsp;", " ")  # remove html
+    text_without_html = text_without_html_tags.replace('&rsquo;', ' ')
+    return text_without_html
+
+
 def format_text_to_fit_hover_text(text: str):
-    text_without_html = re.sub("<.*?>", '', text)  # remove html
+    text_without_html = remove_html_tags_from_text(text)
     words = text_without_html.split(" ")
     formatted_text = ""
     current_line_size = 0
@@ -38,11 +43,12 @@ def format_text_to_fit_hover_text(text: str):
 
 
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
-def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
+def process_job_data_into_data_frame(job_cursor: sqlite3.Cursor, job_data: List, job_cache_cursor):
     all_jobs = []
-    locations_tried = load_location_cache(cursor)  # previous locations checked before
+    locations_tried = load_location_cache(job_cursor)  # previous locations checked before
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
     remote_or_unknown_locations = []
+    job_cache = []
 
     for job_posting in job_data:
         location = job_posting['location']
@@ -53,22 +59,35 @@ def process_job_data_into_data_frame(cursor: sqlite3.Cursor, job_data: List):
             cache_coordinates = locations_tried[location]
             current_job_data = [title_info, cache_coordinates[0], cache_coordinates[1]]
             all_jobs.append(current_job_data)
+            job_cache_data = {'title': job_posting['title'], 'description': job_posting['description'],
+                              'company': job_posting['company'], 'lat': cache_coordinates[0],
+                              'lon': cache_coordinates[1]}
+            job_cache.append(job_cache_data)
         else:
             location_data = get_lat_long_coordinates_from_address(location)
             if location_data is None:
                 # if we can't get address from current string try to get cities with geo text then add
                 plotly_data = get_one_place_from_address(location, locations_tried, title_info)
                 if plotly_data is not False:
+                    job_cache_data = {'title': job_posting['title'], 'description': job_posting['description'],
+                                      'company': job_posting['company'], 'lat': plotly_data[1],
+                                      'lon': plotly_data[2]}
+                    job_cache.append(job_cache_data)
                     all_jobs.append(plotly_data)
                 if plotly_data is False:
                     remote_or_unknown_locations.append(job_posting)
             elif location_data is not False:
+                job_cache_data = {'title': job_posting['title'], 'description': job_posting['description'],
+                                  'company': job_posting['company'], 'lat': location_data[1],
+                                  'lon': location_data[2]}
+                job_cache.append(job_cache_data)
                 # if we got something from class function to find coordinates then add to list
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
                 current_job_data = [title_info, location_data[1], location_data[2]]
                 all_jobs.append(current_job_data)
 
-    add_all_locations_to_db(cursor, locations_tried)  # put new locations into db
+    add_all_locations_to_db(job_cursor, locations_tried)  # put new locations into db
+    add_to_jobs_cache(job_cache_cursor, job_cache)
     all_jobs_no_repeats = process_job_data_into_single_shared_map_box_points(all_jobs)
 
     numpy_array = numpy.array(all_jobs_no_repeats)
@@ -259,6 +278,24 @@ def create_location_cache_table(db_cursor: sqlite3.Cursor):
     );''')
 
 
+def create_job_cache_table(db_cursor: sqlite3.Cursor):
+    db_cursor.execute('''CREATE TABLE IF NOT EXISTS jobs_cache(
+    job_no INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    company TEXT NOT NULL,
+    description TEXT NOT NULL,
+    latitude TEXT NOT NULL,
+    longitude TEXT NOT NULL
+    );''')
+
+
+def add_to_jobs_cache(cursor: sqlite3.Cursor, job_data: List):
+    for job in job_data:
+        sql_data = (job['title'], job['company'], job['description'], job['lat'], job['lon'])
+        sql_statement = 'INSERT INTO JOBS_CACHE (title, company, description, latitude, longitude) VALUES (?,?,?,?,?)'
+        cursor.execute(sql_statement, sql_data)
+
+
 # this function is used to save individual jobs to database
 def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
     if job_data is False:
@@ -342,12 +379,15 @@ def get_lat_long_coordinates_from_address(address: str):
     geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
     location = None
     try:
-        location = geo_locator.geocode(address, timeout=600)
+        location = geo_locator.geocode(address, timeout=700)
     except HTTPError:
         print("http error")
         return False
+    except GeocoderTimedOut:
+        print("geocode timed out")
+        return get_lat_long_coordinates_from_address(address)
     except GeocoderQuotaExceeded:
-        print("geocoder quota exceeded error")
+        print("geocode quota exceeded error")
         return False
 
     # print(location)
@@ -470,6 +510,35 @@ def load_jobs_from_db(cursor: sqlite3.Cursor) -> List:
     return all_jobs
 
 
+def load_jobs_cache(cursor: sqlite3.Cursor):
+    all_job_cache = []
+    sql_statement = 'SELECT * FROM JOBS_CACHE'
+    results = list(cursor.execute(sql_statement))
+    for job in results:
+        job_cache = process_db_job_cache(job)
+        all_job_cache.append(job_cache)
+    return all_job_cache
+
+
+def get_jobs_from_cache_with_lat_long(job_cache: List, lat: str, lon: str):
+    jobs_with_lat_lon = []
+    for job in job_cache:
+        if job['lat'] == lat and job['lon'] == lon:
+            jobs_with_lat_lon.append(job)
+    return jobs_with_lat_lon
+
+
+def format_text_from_selected_jobs_into_dash(all_jobs, header: str):
+    dash_output = [html.H1(header)]
+    count = 0
+    for job in all_jobs:
+        count += 1
+        dash_output.append(html.H6(str(count) + ". Title: " + job['title']))
+        dash_output.append(html.Div("Company: " + job['company']))
+        dash_output.append(html.Div("Description: " + remove_html_tags_from_text(job['description'])))
+    return dash_output
+
+
 # get jobs in database that is after or on a certain date, format needed is YYYY-MM-DD
 def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str):
     all_jobs = []
@@ -495,3 +564,10 @@ def process_db_job_data(job: Tuple):
                 'description': job[5], 'url': job[7], 'created_at': job[8], 'how_to_apply_info': job[9],
                 'company_logo_url': job[10], 'company_url': job[11], 'additional_info': job[12]}
     return job_data
+
+
+def process_db_job_cache(job: Tuple):
+    job_data = {'title': job[1], 'company': job[2], 'description': job[3], 'lat': job[4], 'lon': job[5]}
+    return job_data
+
+
