@@ -569,5 +569,3 @@ def process_db_job_data(job: Tuple):
 def process_db_job_cache(job: Tuple):
     job_data = {'title': job[1], 'company': job[2], 'description': job[3], 'lat': job[4], 'lon': job[5]}
     return job_data
-
-

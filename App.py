@@ -52,7 +52,7 @@ def prepare_dash_with_default_job_figure():
     return figure, DataController.format_text_from_selected_jobs_into_dash(remote_jobs, "Remote or Unknown Jobs")
 
 
-def merge_remote_list(all_remote_jobs: List, unknown_or_remote_jobs: List)-> List:
+def merge_remote_list(all_remote_jobs: List, unknown_or_remote_jobs: List) -> List:
     unique_remote_jobs = all_remote_jobs
     duplicate = False
     for unknown_or_remote_job in unknown_or_remote_jobs:
