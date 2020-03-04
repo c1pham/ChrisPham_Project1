@@ -10,6 +10,7 @@ import numpy
 from geopy.exc import GeocoderQuotaExceeded, GeocoderTimedOut
 import re
 import dash_html_components as html
+from bs4 import BeautifulSoup
 
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
@@ -17,14 +18,14 @@ import dash_html_components as html
 # reference for geopy documentation
 # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.html
 # reference to learn pandas, code is not copied but just used for referenced
-# https://www.dotnetperls.com/remove-html-tags-python
+# https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 # reference to remove html tags
 # format text to fit plotly hover text, however this may be used for text formatting later on GUI
 
 
-def remove_html_tags_from_text(text: str):
-    text_without_html_tags = re.sub("<.*?>", ' ', text).replace("&nbsp;", " ")  # remove html
-    text_without_html = text_without_html_tags.replace('&rsquo;', ' ')
+def remove_html_tags_from_text(html_text: str):
+    soup = BeautifulSoup(html_text, 'html.parser')
+    text_without_html = soup.get_text()
     return text_without_html
 
 
@@ -43,7 +44,7 @@ def format_text_to_fit_hover_text(text: str):
 
 
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
-def process_job_data_into_data_frame(job_cursor: sqlite3.Cursor, job_data: List, job_cache_cursor):
+def process_job_data_into_data_frame(job_cursor: sqlite3.Cursor, job_data: List, job_cache_cursors: List):
     all_jobs = []
     locations_tried = load_location_cache(job_cursor)  # previous locations checked before
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
@@ -87,7 +88,8 @@ def process_job_data_into_data_frame(job_cursor: sqlite3.Cursor, job_data: List,
                 all_jobs.append(current_job_data)
 
     add_all_locations_to_db(job_cursor, locations_tried)  # put new locations into db
-    add_to_jobs_cache(job_cache_cursor, job_cache)
+    for cursor in job_cache_cursors:
+        add_to_jobs_cache(cursor, job_cache)
     all_jobs_no_repeats = process_job_data_into_single_shared_map_box_points(all_jobs)
 
     numpy_array = numpy.array(all_jobs_no_repeats)
@@ -132,7 +134,7 @@ def process_all_stack_overflow_jobs(all_jobs):
 
 
 # process data from stack overflow
-def process_stack_overflow_job(job_data: Dict) -> Dict:
+def process_stack_overflow_job(job_data: Dict):
     processed_job = {}
     job_keys = {'id': ['api_id'], 'type': ['job_type'], 'link': ['url'], 'published': ['created_at'],
                 'author': ['company'], 'location': [], 'title': [], 'summary': ['description'], 'company_url': [],

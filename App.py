@@ -18,6 +18,7 @@ def prepare_dash_with_default_job_figure():
     # open db connections
     job_db_connection, job_db_cursor = DataController.open_db("jobs_db")
     job_cache_db_connection, job_cache_db_cursor = DataController.open_db("jobs_cache_db")
+    default_job_cache_db_connection, default_job_cache_db_cursor = DataController.open_db("default_jobs_cache_db")
     job_cache_db_cursor.execute("DROP TABLE IF EXISTS JOBS_CACHE;")
     DataController.create_job_cache_table(job_cache_db_cursor)
     loc_db_connection, loc_db_cursor = DataController.open_db("location_db")
@@ -42,12 +43,13 @@ def prepare_dash_with_default_job_figure():
     jobs_from_db = DataController.load_jobs_from_db(job_db_cursor)
     non_remote_jobs = DataController.get_all_non_remote_jobs(jobs_from_db)
     jobs_data_frame, remote_or_unknown_jobs = DataController.process_job_data_into_data_frame(
-        loc_db_cursor, non_remote_jobs, job_cache_db_cursor)
+        loc_db_cursor, non_remote_jobs, [job_cache_db_cursor, default_job_cache_db_cursor])
     figure = MapView.make_jobs_map(jobs_data_frame)
     remote_jobs = DataController.get_all_remote_jobs(all_jobs)
     # save jobs and location cache by committing to db
     DataController.close_db(job_db_connection)
     DataController.close_db(loc_db_connection)
+    DataController.close_db(default_job_cache_db_connection)
     DataController.close_db(job_cache_db_connection)
     return figure, DataController.format_text_from_selected_jobs_into_dash(remote_jobs, "Remote or Unknown Jobs")
 
@@ -206,7 +208,7 @@ def update_map_with_filters(n_clicks, selected_time, selected_company, first_tec
             return figure_with_all_non_remote_jobs_on_map, error_message
 
     jobs_data_frame, remote_jobs = DataController.process_job_data_into_data_frame(loc_db_cursor, selected_jobs,
-                                                                                   job_cache_db_cursor)
+                                                                                   [job_cache_db_cursor])
     DataController.close_db(job_cache_db_connection)
     DataController.close_db(loc_db_connection)
     DataController.close_db(job_db_connection)
@@ -222,10 +224,21 @@ def get_job_data_from_graph_click(click_data):
         lon = str(click_data['points'][0]['lon'])
         jobs_cache_connection, jobs_cache_cursor = DataController.open_db('jobs_cache_db')
         job_cache = DataController.load_jobs_cache(jobs_cache_cursor)
-        jobs_with_lat_lon = DataController.get_jobs_from_cache_with_lat_long(job_cache, lat, lon)
-        formatted_text = DataController.format_text_from_selected_jobs_into_dash(jobs_with_lat_lon, "Selected Map Jobs")
-        DataController.close_db(jobs_cache_connection)
-        return formatted_text
+        if len(job_cache) == 0:
+            default_jobs_cache_connection, default_jobs_cache_cursor = DataController.open_db('default_jobs_cache_db')
+            job_cache = DataController.load_jobs_cache(default_jobs_cache_cursor)
+            jobs_with_lat_lon = DataController.get_jobs_from_cache_with_lat_long(job_cache, lat, lon)
+            formatted_text = DataController.format_text_from_selected_jobs_into_dash(jobs_with_lat_lon,
+                                                                                     "Selected Map Jobs")
+            DataController.close_db(jobs_cache_connection)
+            DataController.close_db(default_jobs_cache_connection)
+            return formatted_text
+        else:
+            jobs_with_lat_lon = DataController.get_jobs_from_cache_with_lat_long(job_cache, lat, lon)
+            formatted_text = DataController.format_text_from_selected_jobs_into_dash(jobs_with_lat_lon,
+                                                                                     "Selected Map Jobs")
+            DataController.close_db(jobs_cache_connection)
+            return formatted_text
     return None
 
 

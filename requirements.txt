@@ -9,3 +9,4 @@ numpy
 geotext
 dash
 datetime
+bs4
