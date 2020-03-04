@@ -8,7 +8,6 @@ import geopy
 from geotext import GeoText
 import numpy
 from geopy.exc import GeocoderQuotaExceeded, GeocoderTimedOut
-import re
 import dash_html_components as html
 from bs4 import BeautifulSoup
 
