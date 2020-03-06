@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 
 
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
+# also saves the job with necessary information for GUI to cursors given
 def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, job_data: List, job_cache_cursors: List):
     all_jobs = []
     locations_tried = load_location_cache(custom_job_cache_cursor)  # previous locations checked before
@@ -34,7 +35,7 @@ def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, jo
         title_info = job_posting['title'] + " Tags: " + job_posting['additional_info']
         # keeps if location has already been requested
         if location in locations_tried:
-            # grab location then make array for numpy array and add to all all jobs
+            # grab location then make array for numpy array and add to all all jobs and retrive data for cache jobs
             cache_coordinates = locations_tried[location]
             current_job_data = [title_info, cache_coordinates[0], cache_coordinates[1]]
             all_jobs.append(current_job_data)
@@ -43,7 +44,7 @@ def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, jo
                               'lon': cache_coordinates[1]}
             job_cache.append(job_cache_data)
         else:
-            location_data = get_lat_long_coordinates_from_address(location)
+            location_data = get_lat_lon_coordinates_from_address(location)
             if location_data is None:
                 # if we can't get address from current string try to get cities with geo text then add
                 plotly_data = get_one_place_from_address(location, locations_tried, title_info)
@@ -65,6 +66,7 @@ def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, jo
                 current_job_data = [title_info, location_data[1], location_data[2]]
                 all_jobs.append(current_job_data)
     add_all_locations_to_db(custom_job_cache_cursor, locations_tried)  # put new locations into db
+    # save jobs to cache dbs
     for cursor in job_cache_cursors:
         add_to_jobs_cache(cursor, job_cache)
     all_jobs_no_repeats = process_job_data_into_single_shared_map_box_points(all_jobs)
@@ -89,6 +91,7 @@ def process_job_data_into_single_shared_map_box_points(all_jobs: List):
         else:
             coordinates_used_for_jobs_for_mapbox[key] = job_posting[0]
     all_jobs_no_repeats = []
+    # none given this information take the keys and break them back into lat lon and place them together for plotly data
     for key in coordinates_used_for_jobs_for_mapbox:
         coordinates = key.split(" ")
         latitude = coordinates[0]
@@ -176,7 +179,7 @@ def job_data_adaptor(job_keys, job_data, processed_job):
     return processed_job
 
 
-# process all jobs, formatting data structure so it so it can be saved to database no problem
+# process all jobs, formatting data structure so it so it can be saved to database without error
 def process_all_github_jobs(all_jobs: List[Dict]) -> List[Dict]:
     processed_jobs = []
     for job in all_jobs:
@@ -204,11 +207,11 @@ def process_github_job(job_data: Dict):
 
 
 # checks the data in the table and if an essential data is None then it will return false
-def is_invalid_job_data(essential_key, job_data):
+def is_invalid_job_data(essential_key, job_data) -> bool:
     for key in job_data:
         if job_data[key] is None and key in essential_key:
             return True
-
+    return False
 
 # iterates through and save jobs
 def save_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
@@ -257,6 +260,7 @@ def create_location_cache_table(db_cursor: sqlite3.Cursor):
     );''')
 
 
+# create table to store cache information to be used in the app during runtime for actions related to plotly
 def create_job_cache_table(db_cursor: sqlite3.Cursor):
     db_cursor.execute('''CREATE TABLE IF NOT EXISTS jobs_cache(
     job_no INTEGER PRIMARY KEY,
@@ -268,9 +272,14 @@ def create_job_cache_table(db_cursor: sqlite3.Cursor):
     );''')
 
 
-def get_selected_jobs_with_lat_long(lat, lon, job_cache_db_name, default_cache_db_name):
+# gets jobs from a list with matching lat lon coordinates then save them to two dbs
+def get_selected_jobs_with_lat_long(lat, lon, job_cache_db_name, default_cache_db_name) -> List:
     jobs_cache_connection, jobs_cache_cursor = open_db(job_cache_db_name)
     job_cache = load_jobs_cache(jobs_cache_cursor)
+    # if job cache is empty then just go to default job cache which has all jobs
+    # this is because where it is used in app.py the cache table is dropped consistently but if the user
+    # puts in a filter that brings no entries. then we try to use this on the empty cache we find a bug
+    # so this is done here as a decision to avoid this bug
     if len(job_cache) == 0:
         default_jobs_cache_connection, default_jobs_cache_cursor = open_db(default_cache_db_name)
         job_cache = load_jobs_cache(default_jobs_cache_cursor)
@@ -279,12 +288,15 @@ def get_selected_jobs_with_lat_long(lat, lon, job_cache_db_name, default_cache_d
         close_dbs([jobs_cache_connection, default_jobs_cache_connection])
         return formatted_text
     else:
+        # process jobs that have specific lat lon coordinates given by user
         jobs_with_lat_lon = get_jobs_from_cache_with_lat_long(job_cache, lat, lon)
         formatted_text = format_text_from_selected_jobs_into_dash(jobs_with_lat_lon, "Selected Map Jobs")
         close_db(jobs_cache_connection)
         return formatted_text
 
 
+# add jobs to job cache table
+# warning # data needs these five keys used in sql data
 def add_to_jobs_cache(cursor: sqlite3.Cursor, job_data: List):
     for job in job_data:
         sql_data = (job['title'], job['company'], job['description'], job['lat'], job['lon'])
@@ -312,8 +324,10 @@ def add_job_to_db(cursor: sqlite3.Cursor, job_data: Dict):
     cursor.execute(sql_statement, sql_data)
 
 
+# add all locations to table
 def add_all_locations_to_db(cursor: sqlite3.Cursor, location_data: Dict):
     for key in location_data:
+        # only add if unique job
         if is_unique_in_location_table(cursor, key) is False:
             continue
         #  data to be entered
@@ -324,15 +338,17 @@ def add_all_locations_to_db(cursor: sqlite3.Cursor, location_data: Dict):
         cursor.execute(sql_statement, sql_data)
 
 
-def is_unique_in_job_table(cursor: sqlite3.Cursor, job_data: Dict):
+# see if this job has an id that already exist in table
+def is_unique_in_job_table(cursor: sqlite3.Cursor, job_data: Dict) -> bool:
     sql_data = (job_data['api_id'],)
     # SQL statement to insert data into jobs table
     sql_statement = 'SELECT * FROM JOBS WHERE api_id = ?;'
     results = cursor.execute(sql_statement, sql_data)
-    return len(list(results)) == 0
+    return len(list(results)) == 0   # if len is 0 then it means this job is unique
 
 
-def is_unique_in_location_table(cursor: sqlite3.Cursor, address: str):
+# looks through location table and see if the location is already in it
+def is_unique_in_location_table(cursor: sqlite3.Cursor, address: str) -> bool:
     sql_data = (address,)
     # SQL statement to insert data into jobs table
     sql_statement = 'SELECT * FROM LOCATIONS_CACHE WHERE location = ?;'
@@ -340,10 +356,12 @@ def is_unique_in_location_table(cursor: sqlite3.Cursor, address: str):
     return len(list(results)) == 0
 
 
+# this function only works with the format used by the rss feed and github jobs
 # go through a string for time and returns a string for time in the month day and year format
 def parse_date(date: str) -> str:
     date_dict = {}
     months = ["Jan", "Feb", "Mar", "Apr", "May", "June", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    # these digits are used to make sure the day format is correct
     ones_digits = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
     tens_digits = ['0', '1', '2', '3']
     date_parts = date.split(" ")
@@ -351,7 +369,7 @@ def parse_date(date: str) -> str:
     for time_data in date_parts:
         if time_data in months:
             month = str(months.index(time_data) + 1)  # add one because indexing starts at 0 when months start from 1
-            if len(month) == 1:
+            if len(month) == 1:  # if len is 1 then we know this must reformat it  to 01 or 02 so julianday func works
                 month = "0" + month
             date_dict['month'] = month
         elif len(time_data) == 4:  # if length is 4 then it is the year
@@ -359,11 +377,13 @@ def parse_date(date: str) -> str:
         elif len(time_data) == 2:  # if length is 2 then it most likely the day
             if time_data[0] in tens_digits and time_data[1] in ones_digits:
                 date_dict['day'] = time_data
+    # the format is tailor so SQL can use julianday on it. month must be in MM format not just 1 digit
     return date_dict['year'] + "-" + date_dict['month'] + "-" + date_dict['day']
 
 
-# given a date time, parse the info into YYYY-MM-DD format for db use
-def parse_date_time(date: str):
+# given a date time, parse the info into YYYY-MM-DD format for db use, this date time is for the date given back by
+# dash date picker objects
+def parse_dash_date(date: str) -> str:
     date_parts = date.split("-")
     year = date_parts[0]
     month = date_parts[1]
@@ -371,11 +391,14 @@ def parse_date_time(date: str):
     return year + "-" + month + "-" + day
 
 
-def get_lat_long_coordinates_from_address(address: str):
+# gets lat lon coordinates from an address
+def get_lat_lon_coordinates_from_address(address: str) -> List or bool:
     geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
+    # we add us bias if town is california town because geopy confuses CA for canada and not california
     if is_there_california_town_in_address(address):
         geo_locator.country_bias = ['US']
     try:
+        # the next line returns none if no location is found
         location = geo_locator.geocode(address, timeout=700)
         if location is not None:
             return address, location.latitude, location.longitude, location
@@ -385,14 +408,16 @@ def get_lat_long_coordinates_from_address(address: str):
         print("http error")
         return False
     except GeocoderTimedOut:
+        # if this times out then call the function again
         print("geocode timed out")
-        return get_lat_long_coordinates_from_address(address)
+        return get_lat_lon_coordinates_from_address(address)
     except GeocoderQuotaExceeded:
         print("geocode quota exceeded error")
         return False
 
 
-def is_there_california_town_in_address(address: str):
+# checks if address has a california town in it and has CA initials in it
+def is_there_california_town_in_address(address: str) -> bool:
     california_towns = ["Sunnyvale", "La Mesa", "Crypress", "Beverly Hills", "Irvine", "Mountain View",
                         "Newport Beach", "Santa Monica", "Oakland", "Glendale", "Long Beach", "Pasadena"]
     if has_california_initial(address) is False:
@@ -403,19 +428,23 @@ def is_there_california_town_in_address(address: str):
             return True
 
 
-def has_california_initial(address: str):
+# checks last 3 characters in string if CA initial is in it for california
+def has_california_initial(address: str) -> bool:
     size = len(address)
+    # if address is less than 3 letters just check whole thing
     if size < 3:
         if address.lower().find("ca") != -1:
             return True
-    elif size >= 3:
+    elif size >= 3:  # if address is greater or equal to 3 then only check last 3 letters of string for initials
         last_few_letters = address[size-3:].lower()
         if last_few_letters.find("ca") != -1:
             return True
     return False
 
 
-def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
+# tries to return one valid lat lon coordinates within an string address, it first checks by trying cities to geopy
+# if that fails it then tries looking by countries found in geopy
+def get_one_place_from_address(location: str, locations_tried: Dict, info: str) -> List or False:
     cities = GeoText(location).cities
     for city in cities:
         # only add one of the multiple cities from geotext
@@ -424,8 +453,8 @@ def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
             cache_coordinates = locations_tried[city]
             return [info, cache_coordinates[0], cache_coordinates[1]]
         else:
-            location_data = get_lat_long_coordinates_from_address(city)
-            if location_data is None:
+            location_data = get_lat_lon_coordinates_from_address(city)
+            if location_data is None:  # location data returns none if nothing is found
                 continue
             elif location_data is not False:
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
@@ -434,73 +463,83 @@ def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
     return get_one_country_from_address(location, locations_tried, info)
 
 
-def get_one_country_from_address(location: str, locations_tried: Dict, info: str):
+# looks through an address and tries to see if it can get lat lon coordinates by looking at the countries in address
+def get_one_country_from_address(location: str, locations_tried: Dict, info: str) -> List or False:
     countries = GeoText(location).countries
     for country in countries:
+        # checks to see if we already made successful request for this country if so then just grab it from cache
         if country in locations_tried:
             cache_coordinates = locations_tried[country]
             return [info, cache_coordinates[0], cache_coordinates[1]]
         else:
-            location_data = get_lat_long_coordinates_from_address(country)
+            # make request for this data because we have not made successful request and stored it before
+            location_data = get_lat_lon_coordinates_from_address(country)
             if location_data is not False and not None:
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
                 return [info, location_data[1], location_data[2]]
     return False
 
 
-# problem if jobs can count as location and remote then what do we do?
+# gets all jobs that has remote in the description or has no location provided
 def get_all_remote_jobs(all_jobs: List) -> List:
     all_remote_jobs = []
     for job in all_jobs:
         location = job['location'].lower()
+        # checks for not provided because database stores places without locations as NOT PROVIDED
         if location.find('remote') != -1 or location == "not provided":
             all_remote_jobs.append(job)
     return all_remote_jobs
 
 
-# problem if jobs can count as location and remote then what do we do?
+# gets all jobs that are not remote
 def get_all_non_remote_jobs(all_jobs: List) -> List:
     all_non_remote_jobs = []
     for job in all_jobs:
         location = job['location'].lower()
+        # as long as the job information is stored as not provided it will send the job further
         if location != "not provided":
             all_non_remote_jobs.append(job)
     return all_non_remote_jobs
 
 
-def get_all_company_jobs(all_jobs: List, company_name: str):
+# get all jobs that has this company in its company key value
+def get_all_company_jobs(all_jobs: List, company_name: str) -> List or False:
     all_company_jobs = []
     for job in all_jobs:
         company = job['company'].lower()
         if company == company_name.lower():
             all_company_jobs.append(job)
-    if len(all_company_jobs) == 0:
+    if len(all_company_jobs) == 0: # if empty return false
         return False
     return all_company_jobs
 
 
-def get_all_jobs_with_title(all_jobs: List, wanted_title: str):
+# gets all jobs that has the wanted title somewhere in its title
+def get_all_jobs_with_title(all_jobs: List, wanted_title: str) -> List or False:
     all_jobs_with_title = []
     for job in all_jobs:
         title = job['title'].lower()
         if title.find(wanted_title.lower()) != -1:
             all_jobs_with_title.append(job)
-    if len(all_jobs_with_title) == 0:
+    if len(all_jobs_with_title) == 0: # if empty return false
         return False
     return all_jobs_with_title
 
 
 # gets job that has at least one of the technologies stored in tags
-def get_jobs_by_technology(all_jobs: List, ui_tags: List) -> List:
+def get_jobs_by_technology(all_jobs: List, ui_tags: List) -> List or False:
     all_jobs_with_technology = []
     tags = []
-    for tag in ui_tags:
+    for tag in ui_tags:  # only keeps tags that are not empty string
         if tag != "":
             tags.append(tag.lower())
 
     for job in all_jobs:
         has_technology = False
         for technology in tags:
+            # checks first if it is not provided, then goes to check to see if technology is in string
+            # find returns -1 if it is not found
+            # the next to elf if try checks to see if find has found the string
             if job['additional_info'] != "NOT PROVIDED" and job['additional_info'].lower().find(technology) != -1:
                 has_technology = True
             elif job['title'].lower().find(technology) != -1:
@@ -509,7 +548,7 @@ def get_jobs_by_technology(all_jobs: List, ui_tags: List) -> List:
                 has_technology = True
         if has_technology is True:
             all_jobs_with_technology.append(job)
-
+    # if the jobs list is empty then return false
     if len(all_jobs_with_technology) == 0:
         return False
     return all_jobs_with_technology
@@ -517,7 +556,7 @@ def get_jobs_by_technology(all_jobs: List, ui_tags: List) -> List:
 
 # get all location data from db then make return a dictionary with the keys being the location
 # and the coordinates in a tuple being the value
-def load_location_cache(cursor: sqlite3.Cursor):
+def load_location_cache(cursor: sqlite3.Cursor) -> Dict:
     all_locations = {}
     sql_statement = 'SELECT * FROM LOCATIONS_CACHE;'
     results = cursor.execute(sql_statement)
@@ -527,7 +566,7 @@ def load_location_cache(cursor: sqlite3.Cursor):
     return all_locations
 
 
-# load all jobs from the database
+# load all jobs from the database from jobs table, and also reformats data for our program's use
 def load_jobs_from_db(cursor: sqlite3.Cursor) -> List:
     all_jobs = []
     sql_statement = 'SELECT * FROM JOBS;'
@@ -538,7 +577,8 @@ def load_jobs_from_db(cursor: sqlite3.Cursor) -> List:
     return all_jobs
 
 
-def load_jobs_cache(cursor: sqlite3.Cursor):
+# load all jobs from job cache table, also reformats data for our program's use
+def load_jobs_cache(cursor: sqlite3.Cursor) -> List:
     all_job_cache = []
     sql_statement = 'SELECT * FROM JOBS_CACHE'
     results = list(cursor.execute(sql_statement))
@@ -548,7 +588,8 @@ def load_jobs_cache(cursor: sqlite3.Cursor):
     return all_job_cache
 
 
-def get_jobs_from_cache_with_lat_long(job_cache: List, lat: str, lon: str):
+# find all jobs in a list with matching lat and lon coordinates
+def get_jobs_from_cache_with_lat_long(job_cache: List, lat: str, lon: str) -> List or False:
     jobs_with_lat_lon = []
     for job in job_cache:
         if job['lat'] == lat and job['lon'] == lon:
@@ -559,7 +600,9 @@ def get_jobs_from_cache_with_lat_long(job_cache: List, lat: str, lon: str):
         return jobs_with_lat_lon
 
 
-def format_text_from_selected_jobs_into_dash(all_jobs, header: str):
+# formats text data into dash html objects
+# format is number, title, company, then description all separated into own div
+def format_text_from_selected_jobs_into_dash(all_jobs: List, header: str) -> List:
     dash_output = [html.H1(header)]
     count = 0
     for job in all_jobs:
@@ -571,7 +614,7 @@ def format_text_from_selected_jobs_into_dash(all_jobs, header: str):
 
 
 # get jobs in database that is after or on a certain date, format needed is YYYY-MM-DD
-def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str):
+def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str) -> List or False:
     all_jobs = []
     sql_statement = "SELECT * FROM JOBS WHERE julianday(created_at) >= julianday(?);"
     results = list(cursor.execute(sql_statement, (date,)))
@@ -583,7 +626,9 @@ def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str):
     return all_jobs
 
 
-def format_text_to_fit_hover_text(text: str):
+# this function is used in plotly hoover text. it formats the data to fit
+# it also removes html
+def format_text_to_fit_plotly_hover_text(text: str) -> str:
     text_without_html = remove_html_tags_from_text(text)
     words = text_without_html.split(" ")
     formatted_text = ""
@@ -598,30 +643,33 @@ def format_text_to_fit_hover_text(text: str):
 
 
 # this is so app.py can reject looking through data if a company does not exist at all
-def is_company_in_db(cursor: sqlite3.Cursor, company_name: str):
+def is_company_in_db(cursor: sqlite3.Cursor, company_name: str) -> List:
     results = cursor.execute('SELECT * FROM JOBS WHERE lower(company) = ?;', (company_name.lower(),))
     return len(list(results))
 
 
 # works if user does SELECT * from JOBS, takes the tuple data then makes a dictionary with the right keys
-def process_db_job_data(job: Tuple):
+def process_db_job_data(job: Tuple) -> Dict:
     job_data = {'title': job[1], 'job_type': job[2], 'company': job[3], 'location': job[4],
                 'description': job[5], 'url': job[7], 'created_at': job[8], 'how_to_apply_info': job[9],
                 'company_logo_url': job[10], 'company_url': job[11], 'additional_info': job[12]}
     return job_data
 
 
+# close database
 def close_dbs(connections: List):
     for db_connection in connections:
         close_db(db_connection)
 
 
-def process_db_job_cache(job: Tuple):
+# takes tuple from database and reorganize into an dictionary
+def process_db_job_cache(job: Tuple) -> Dict:
     job_data = {'title': job[1], 'company': job[2], 'description': job[3], 'lat': job[4], 'lon': job[5]}
     return job_data
 
 
-def remove_html_tags_from_text(html_text: str):
+# remove all html tags from text
+def remove_html_tags_from_text(html_text: str) -> str:
     soup = BeautifulSoup(html_text, 'html.parser')
     text_without_html = soup.get_text()
     return text_without_html

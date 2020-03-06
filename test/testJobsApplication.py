@@ -478,7 +478,7 @@ def selected_jobs_func(all_jobs, test_address):
 
     job_cache_db_connection, job_cache_db_cursor = DataController.open_db("selected_jobs_cache_db")
     # this data is used to find jobs with matching lat and lon
-    location_data = DataController.get_lat_long_coordinates_from_address(test_address)
+    location_data = DataController.get_lat_lon_coordinates_from_address(test_address)
     lat = str(location_data[1])
     lon = str(location_data[2])
     jobs_cache = DataController.load_jobs_cache(job_cache_db_cursor)
