@@ -35,7 +35,6 @@ def prepare_dash_with_default_job_figure():
     DataController.create_location_cache_table(loc_db_cursor)
 
     github_jobs = JobCollector.get_github_jobs()
-    print(len(github_jobs))
     stack_overflow_jobs = JobCollector.get_stack_overflow_jobs()
     # take job info and make it into dictionary the program can use
     processed_github_jobs = DataController.process_all_github_jobs(github_jobs)

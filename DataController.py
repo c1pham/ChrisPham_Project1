@@ -553,7 +553,10 @@ def get_jobs_from_cache_with_lat_long(job_cache: List, lat: str, lon: str):
     for job in job_cache:
         if job['lat'] == lat and job['lon'] == lon:
             jobs_with_lat_lon.append(job)
-    return jobs_with_lat_lon
+    if len(jobs_with_lat_lon) == 0:
+        return False
+    else:
+        return jobs_with_lat_lon
 
 
 def format_text_from_selected_jobs_into_dash(all_jobs, header: str):
