@@ -219,9 +219,16 @@ def update_map_with_filters( selected_time, selected_company, first_tech, second
     selected_jobs_after_time = filter_jobs_with_time(job_db_cursor, selected_time)
     if selected_jobs_after_time is False: # it returns false if no jobs were found
         return figure_with_all_non_remote_jobs_on_map, error_message
+    print(selected_jobs_after_time)
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs_after_time)
+    if len(non_remote_jobs) == 0:
+        return figure_with_all_non_remote_jobs_on_map, error_message
     selected_jobs = filter_jobs_with_technology(non_remote_jobs, first_tech, second_tech, third_tech)
+    if selected_jobs is False:
+        return figure_with_all_non_remote_jobs_on_map, error_message
     selected_jobs = filter_jobs_with_company(selected_jobs, selected_company)
+    if selected_jobs is False:
+        return figure_with_all_non_remote_jobs_on_map, error_message
     selected_jobs = filter_jobs_with_title(selected_jobs, job_title)
     # if any of these conditions are true no need to generate a new data frame and map just return default map
     if selected_jobs is False or len(selected_jobs) == 0:
@@ -260,9 +267,10 @@ def update_remote_info(n_clicks):
 
 
 # filters out jobs by title
-def filter_jobs_with_title(all_jobs, job_title):
-    if job_title != "":  # will filter only if user input is not empty string
-        jobs_with_title = DataController.get_all_jobs_with_title(all_jobs, job_title)
+def filter_jobs_with_title(all_jobs, job_title: str):
+    stripped_title = job_title.strip()
+    if stripped_title != "":  # will filter only if user input is not empty string
+        jobs_with_title = DataController.get_all_jobs_with_title(all_jobs, stripped_title)
         if jobs_with_title is not False:
             return jobs_with_title
         else:
@@ -272,9 +280,10 @@ def filter_jobs_with_title(all_jobs, job_title):
 
 
 # filters out jobs by company
-def filter_jobs_with_company(all_jobs, selected_company):
-    if selected_company != "":  # will filter only if user input is not empty string
-        company_jobs = DataController.get_all_company_jobs(all_jobs, selected_company)
+def filter_jobs_with_company(all_jobs, selected_company: str):
+    stripped_company = selected_company.strip()
+    if stripped_company != "":  # will filter only if user input is not empty string
+        company_jobs = DataController.get_all_company_jobs(all_jobs, stripped_company)
         if company_jobs is not False:  # company jobs is false if no jobs were found
             return company_jobs
         else:
@@ -284,10 +293,14 @@ def filter_jobs_with_company(all_jobs, selected_company):
 
 
 # filter out jobs that have one of these technologies, it works as it has first tech or second tech or third tech
-def filter_jobs_with_technology(all_jobs, first_tech, second_tech, third_tech):
+def filter_jobs_with_technology(all_jobs: str, first_tech: str, second_tech: str, third_tech: str):
     # if user input is empty then don't filter
-    if first_tech != '' or second_tech != '' or third_tech != '':
-        tech_jobs = DataController.get_jobs_by_technology(all_jobs, [first_tech, second_tech, third_tech])
+    stripped_first_tech = first_tech.strip()
+    stripped_second_tech = second_tech.strip()
+    stripped_third_tech = third_tech.strip()
+    technology = [stripped_first_tech, stripped_second_tech, stripped_third_tech]
+    if stripped_first_tech != '' or stripped_second_tech != '' or stripped_third_tech != '':
+        tech_jobs = DataController.get_jobs_by_technology(all_jobs, technology)
         if tech_jobs is not False:  # tech jobs return false if no jobs are found
             return tech_jobs
         else:
