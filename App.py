@@ -203,7 +203,7 @@ def update_map(n_clicks, selected_time, selected_company, first_tech, second_tec
 
 
 # this function is what gets called by update_map but can be used with any data
-def update_map_with_filters( selected_time, selected_company, first_tech, second_tech, third_tech, job_title):
+def update_map_with_filters(selected_time, selected_company, first_tech, second_tech, third_tech, job_title):
     error_message = 'ERROR: no jobs with these criteria'
     job_db_connection, job_db_cursor = DataController.open_db("jobs_db")
     loc_db_connection, loc_db_cursor = DataController.open_db("location_db")
@@ -217,7 +217,7 @@ def update_map_with_filters( selected_time, selected_company, first_tech, second
         return figure_with_all_non_remote_jobs_on_map, error_message
     # gets job on or after a certain date
     selected_jobs_after_time = filter_jobs_with_time(job_db_cursor, selected_time)
-    if selected_jobs_after_time is False: # it returns false if no jobs were found
+    if selected_jobs_after_time is False:  # it returns false if no jobs were found
         return figure_with_all_non_remote_jobs_on_map, error_message
     print(selected_jobs_after_time)
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs_after_time)
