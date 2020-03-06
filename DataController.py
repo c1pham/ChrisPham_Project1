@@ -623,6 +623,3 @@ def remove_html_tags_from_text(html_text: str):
     soup = BeautifulSoup(html_text, 'html.parser')
     text_without_html = soup.get_text()
     return text_without_html
-
-
-
