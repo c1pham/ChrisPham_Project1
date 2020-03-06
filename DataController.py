@@ -22,30 +22,10 @@ from bs4 import BeautifulSoup
 # format text to fit plotly hover text, however this may be used for text formatting later on GUI
 
 
-def remove_html_tags_from_text(html_text: str):
-    soup = BeautifulSoup(html_text, 'html.parser')
-    text_without_html = soup.get_text()
-    return text_without_html
-
-
-def format_text_to_fit_hover_text(text: str):
-    text_without_html = remove_html_tags_from_text(text)
-    words = text_without_html.split(" ")
-    formatted_text = ""
-    current_line_size = 0
-    for word in words:  # add words to formatted text
-        if current_line_size > 80:  # add line break if line is too long
-            formatted_text += "<br>"
-            current_line_size = 0
-        formatted_text += word + " "
-        current_line_size += len(word)
-    return formatted_text
-
-
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
-def process_job_data_into_data_frame(job_cursor: sqlite3.Cursor, job_data: List, job_cache_cursors: List):
+def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, job_data: List, job_cache_cursors: List):
     all_jobs = []
-    locations_tried = load_location_cache(job_cursor)  # previous locations checked before
+    locations_tried = load_location_cache(custom_job_cache_cursor)  # previous locations checked before
     columns = ['jobs_info', 'lat', 'lon']  # columns for data frame
     remote_or_unknown_locations = []
     job_cache = []
@@ -85,8 +65,7 @@ def process_job_data_into_data_frame(job_cursor: sqlite3.Cursor, job_data: List,
                 locations_tried[location_data[0]] = (location_data[1], location_data[2])
                 current_job_data = [title_info, location_data[1], location_data[2]]
                 all_jobs.append(current_job_data)
-
-    add_all_locations_to_db(job_cursor, locations_tried)  # put new locations into db
+    add_all_locations_to_db(custom_job_cache_cursor, locations_tried)  # put new locations into db
     for cursor in job_cache_cursors:
         add_to_jobs_cache(cursor, job_cache)
     all_jobs_no_repeats = process_job_data_into_single_shared_map_box_points(all_jobs)
@@ -290,6 +269,23 @@ def create_job_cache_table(db_cursor: sqlite3.Cursor):
     );''')
 
 
+def get_selected_jobs_with_lat_long(lat, lon, job_cache_db_name, default_cache_db_name):
+    jobs_cache_connection, jobs_cache_cursor = open_db(job_cache_db_name)
+    job_cache = load_jobs_cache(jobs_cache_cursor)
+    if len(job_cache) == 0:
+        default_jobs_cache_connection, default_jobs_cache_cursor = open_db(default_cache_db_name)
+        job_cache = load_jobs_cache(default_jobs_cache_cursor)
+        jobs_with_lat_lon = get_jobs_from_cache_with_lat_long(job_cache, lat, lon)
+        formatted_text = format_text_from_selected_jobs_into_dash(jobs_with_lat_lon, "Selected Map Jobs")
+        close_dbs([jobs_cache_connection, default_jobs_cache_connection])
+        return formatted_text
+    else:
+        jobs_with_lat_lon = get_jobs_from_cache_with_lat_long(job_cache, lat, lon)
+        formatted_text = format_text_from_selected_jobs_into_dash(jobs_with_lat_lon, "Selected Map Jobs")
+        close_db(jobs_cache_connection)
+        return formatted_text
+
+
 def add_to_jobs_cache(cursor: sqlite3.Cursor, job_data: List):
     for job in job_data:
         sql_data = (job['title'], job['company'], job['description'], job['lat'], job['lon'])
@@ -378,9 +374,14 @@ def parse_date_time(date: str):
 
 def get_lat_long_coordinates_from_address(address: str):
     geo_locator = geopy.geocoders.Nominatim(user_agent="ChrisPham_Project1")
-    location = None
+    if is_there_california_town_in_address(address):
+        geo_locator.country_bias = ['US']
     try:
         location = geo_locator.geocode(address, timeout=700)
+        if location is not None:
+            return address, location.latitude, location.longitude, location
+        else:
+            return False
     except HTTPError:
         print("http error")
         return False
@@ -391,12 +392,28 @@ def get_lat_long_coordinates_from_address(address: str):
         print("geocode quota exceeded error")
         return False
 
-    # print(location)
-    if location is None:
-        # print(address + " could not find location")
-        return None
 
-    return address, location.latitude, location.longitude, location
+def is_there_california_town_in_address(address: str):
+    california_towns = ["Sunnyvale", "La Mesa", "Crypress", "Beverly Hills", "Irvine", "Mountain View",
+                        "Newport Beach", "Santa Monica", "Oakland", "Glendale", "Long Beach", "Pasadena"]
+    if has_california_initial(address) is False:
+        return False
+    for town in california_towns:
+        looking_for_town = town.lower()
+        if address.lower().find(looking_for_town) != -1:
+            return True
+
+
+def has_california_initial(address: str):
+    size = len(address)
+    if size < 3:
+        if address.lower().find("ca") != -1:
+            return True
+    elif size >= 3:
+        last_few_letters = address[size-3:].lower()
+        if last_few_letters.find("ca") != -1:
+            return True
+    return False
 
 
 def get_one_place_from_address(location: str, locations_tried: Dict, info: str):
@@ -463,27 +480,38 @@ def get_all_company_jobs(all_jobs: List, company_name: str):
     return all_company_jobs
 
 
+def get_all_jobs_with_title(all_jobs: List, wanted_title: str):
+    all_jobs_with_title = []
+    for job in all_jobs:
+        title = job['title'].lower()
+        if title.find(wanted_title.lower()) != -1:
+            all_jobs_with_title.append(job)
+    if len(all_jobs_with_title) == 0:
+        return False
+    return all_jobs_with_title
+
+
 # gets job that has at least one of the technologies stored in tags
 def get_jobs_by_technology(all_jobs: List, ui_tags: List) -> List:
     all_jobs_with_technology = []
     tags = []
     for tag in ui_tags:
         if tag != "":
-            tags.append(tag)
+            tags.append(tag.lower())
 
     for job in all_jobs:
         has_technology = False
         for technology in tags:
-            if job['additional_info'] != "NOT PROVIDED" and job['additional_info'].find(technology) != -1:
+            if job['additional_info'] != "NOT PROVIDED" and job['additional_info'].lower().find(technology) != -1:
                 has_technology = True
-            elif job['title'].find(technology) != -1:
+            elif job['title'].lower().find(technology) != -1:
                 has_technology = True
-            elif job['description'].find(technology) != -1:
+            elif job['description'].lower().find(technology) != -1:
                 has_technology = True
         if has_technology is True:
             all_jobs_with_technology.append(job)
 
-    if len(all_jobs) == 0:
+    if len(all_jobs_with_technology) == 0:
         return False
     return all_jobs_with_technology
 
@@ -553,6 +581,20 @@ def load_jobs_created_on_or_after_date(cursor: sqlite3.Cursor, date: str):
     return all_jobs
 
 
+def format_text_to_fit_hover_text(text: str):
+    text_without_html = remove_html_tags_from_text(text)
+    words = text_without_html.split(" ")
+    formatted_text = ""
+    current_line_size = 0
+    for word in words:  # add words to formatted text
+        if current_line_size > 80:  # add line break if line is too long
+            formatted_text += "<br>"
+            current_line_size = 0
+        formatted_text += word + " "
+        current_line_size += len(word)
+    return formatted_text
+
+
 # this is so app.py can reject looking through data if a company does not exist at all
 def is_company_in_db(cursor: sqlite3.Cursor, company_name: str):
     results = cursor.execute('SELECT * FROM JOBS WHERE lower(company) = ?;', (company_name.lower(),))
@@ -567,6 +609,20 @@ def process_db_job_data(job: Tuple):
     return job_data
 
 
+def close_dbs(connections: List):
+    for db_connection in connections:
+        close_db(db_connection)
+
+
 def process_db_job_cache(job: Tuple):
     job_data = {'title': job[1], 'company': job[2], 'description': job[3], 'lat': job[4], 'lon': job[5]}
     return job_data
+
+
+def remove_html_tags_from_text(html_text: str):
+    soup = BeautifulSoup(html_text, 'html.parser')
+    text_without_html = soup.get_text()
+    return text_without_html
+
+
+
