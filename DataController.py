@@ -213,6 +213,7 @@ def is_invalid_job_data(essential_key, job_data) -> bool:
             return True
     return False
 
+
 # iterates through and save jobs
 def save_jobs_to_db(db_cursor: sqlite3.Cursor, all_jobs: List):
     for entry in all_jobs:  # go through each job posting and then add it to database table
@@ -509,7 +510,7 @@ def get_all_company_jobs(all_jobs: List, company_name: str) -> List or False:
         company = job['company'].lower()
         if company == company_name.lower():
             all_company_jobs.append(job)
-    if len(all_company_jobs) == 0: # if empty return false
+    if len(all_company_jobs) == 0:  # if empty return false
         return False
     return all_company_jobs
 
@@ -521,7 +522,7 @@ def get_all_jobs_with_title(all_jobs: List, wanted_title: str) -> List or False:
         title = job['title'].lower()
         if title.find(wanted_title.lower()) != -1:
             all_jobs_with_title.append(job)
-    if len(all_jobs_with_title) == 0: # if empty return false
+    if len(all_jobs_with_title) == 0:  # if empty return false
         return False
     return all_jobs_with_title
 
