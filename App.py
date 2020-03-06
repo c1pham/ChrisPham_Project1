@@ -219,7 +219,6 @@ def update_map_with_filters(selected_time, selected_company, first_tech, second_
     selected_jobs_after_time = filter_jobs_with_time(job_db_cursor, selected_time)
     if selected_jobs_after_time is False:  # it returns false if no jobs were found
         return figure_with_all_non_remote_jobs_on_map, error_message
-    print(selected_jobs_after_time)
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs_after_time)
     if len(non_remote_jobs) == 0:
         return figure_with_all_non_remote_jobs_on_map, error_message

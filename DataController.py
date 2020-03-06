@@ -101,9 +101,9 @@ def process_job_data_into_single_shared_map_box_points(all_jobs: List):
         longitude = coordinates[1]
         info = coordinates_used_for_jobs_for_mapbox[key]
         num_jobs_in_spot = coordinates_count[key]
+        # if there are too many lines of information in one point, plotly cannot correctly show the hover text
+        # there if the number of at one point exceeds 20 the point just says the number of jobs in the location
         if num_jobs_in_spot > 20:
-            print(num_jobs_in_spot)
-            print(info)
             info = str(num_jobs_in_spot) + " developer jobs are in this location. Press to see more information!"
         plotly_data_point = [info, latitude, longitude]
         all_jobs_no_repeats.append(plotly_data_point)
