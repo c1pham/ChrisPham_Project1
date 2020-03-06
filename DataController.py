@@ -10,7 +10,6 @@ import numpy
 from geopy.exc import GeocoderQuotaExceeded, GeocoderTimedOut
 import dash_html_components as html
 from bs4 import BeautifulSoup
-
 # https://www.btelligent.com/en/blog/best-practice-for-sql-statements-in-python/
 # reference for parametrised queries
 # https://pypi.org/project/geopy/
