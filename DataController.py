@@ -83,12 +83,15 @@ def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, jo
 # returns a list or list with all the job info with the same coordinates being in the same string
 def process_job_data_into_single_shared_map_box_points(all_jobs: List):
     coordinates_used_for_jobs_for_mapbox = {}
+    coordinates_count = {}
     # combine places with duplicate latitude and longitude coordinates and combine them into 1 entry
     for job_posting in all_jobs:
         key = str(job_posting[1]) + " " + str(job_posting[2])
         if key in coordinates_used_for_jobs_for_mapbox:
+            coordinates_count[key] += 1
             coordinates_used_for_jobs_for_mapbox[key] += "<br>" + job_posting[0]
         else:
+            coordinates_count[key] = 1
             coordinates_used_for_jobs_for_mapbox[key] = job_posting[0]
     all_jobs_no_repeats = []
     # none given this information take the keys and break them back into lat lon and place them together for plotly data
@@ -97,6 +100,11 @@ def process_job_data_into_single_shared_map_box_points(all_jobs: List):
         latitude = coordinates[0]
         longitude = coordinates[1]
         info = coordinates_used_for_jobs_for_mapbox[key]
+        num_jobs_in_spot = coordinates_count[key]
+        if num_jobs_in_spot > 20:
+            print(num_jobs_in_spot)
+            print(info)
+            info = str(num_jobs_in_spot) + " developer jobs are in this location. Press to see more information!"
         plotly_data_point = [info, latitude, longitude]
         all_jobs_no_repeats.append(plotly_data_point)
     return all_jobs_no_repeats
