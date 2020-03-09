@@ -1,5 +1,6 @@
 # ChrisPham_Project1 My name is Christopher Pham. You need to install pytest, feedparser, typing, requests, geopy, pandas, plotly, dash, datetime, and bs4 library
-# You also need python 3.7. The project takes jobs from github jobs API and stack overflow rss feed, and saves it into a database. 
+# You also need python 3.7. The file that needs to be run is app.py
+# The project takes jobs from github jobs API and stack overflow rss feed, and saves it into a database. 
 # This job data is then taken and shown on a webpage. The user can see all the remote jobs by pressing a remote jobs button.
 # The user can see the job info on the map by hovering over the points. However if there are more than 20 jobs in a location.
 # If they press on a point they see more information about the job.
