@@ -492,7 +492,7 @@ def selected_jobs_func(all_jobs, test_address):
 def test_location_filter_not_all_good_data():
     ssl._create_default_https_context = ssl._create_unverified_context
     providence_robot_job = {'title': "MongoDB Developer", 'job_type': "Full Time", 'company': "iRobot",
-                            'location': "Providence, RI", 'description': "Use Angular", 'api_id': "1234",'url': "w",
+                            'location': "Providence, RI", 'description': "Use Angular", 'api_id': "1234", 'url': "w",
                             'created_at': "Wed, 12 Feb 2010 20:55:54 Z", 'how_to_apply_info': "google.com",
                             'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "angular"}
     boston_web_job = {'title': "Backend Developer", 'job_type': "Full Time", 'company': "IP", 'location': "Boston, MA",
@@ -523,9 +523,9 @@ def test_location_filter_all_good_data():
                       'created_at': "Wed, 12 Feb 2000 20:55:54 Z", 'how_to_apply_info': "google.com",
                       'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "javascript"}
     providence_job = {'title': "Developer", 'job_type': "Full Time", 'company': "Rob", 'location': "Providence, RI",
-                 'description': "Develop python programs", 'api_id': "12346", 'url': "www.apply.com",
-                 'created_at': "Wed, 12 Feb 2015 20:55:54 Z", 'how_to_apply_info': "google.com",
-                 'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "Python"}
+                      'description': "Develop python programs", 'api_id': "12346", 'url': "www.apply.com",
+                      'created_at': "Wed, 12 Feb 2015 20:55:54 Z", 'how_to_apply_info': "google.com",
+                      'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "Python"}
     location = "Boston, MA"
     loc_db_connection, loc_db_cursor = DataController.open_db("selected_lat_lon_location_db")
     DataController.create_location_cache_table(loc_db_cursor)
