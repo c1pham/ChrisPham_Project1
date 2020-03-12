@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 # reference to learn pandas, code is not copied but just used for referenced
 # https://www.crummy.com/software/BeautifulSoup/bs4/doc/
 # reference to remove html tags
-# format text to fit plotly hover text, however this may be used for text formatting later on GUI
+
 
 
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
