@@ -4,8 +4,6 @@ import pytest
 import DataController
 import App
 import ssl
-
-
 # https://pythonexamples.org/python-sqlite3-check-if-table-exists/
 # this is website where I learned SQL command to check if it exist
 
