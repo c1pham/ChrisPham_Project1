@@ -20,7 +20,6 @@ from bs4 import BeautifulSoup
 # reference to remove html tags
 
 
-
 # create data frame for plotly to plot on map, has 4 columns, title, latitude, longitude, additional info
 # also saves the job with necessary information for GUI to cursors given
 def process_job_data_into_data_frame(custom_job_cache_cursor: sqlite3.Cursor, job_data: List, job_cache_cursors: List):
