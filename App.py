@@ -368,4 +368,4 @@ if __name__ == '__main__':
     default_figure, default_remote_jobs = prepare_dash_with_data()
     figure_with_all_non_remote_jobs_on_map = default_figure
     remote_information = default_remote_jobs
-    app.run_server(debug=True)
+    app.run_server()
