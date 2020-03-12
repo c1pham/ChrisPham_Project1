@@ -420,7 +420,7 @@ def test_selected_jobs_good_data():
     for job in jobs:
         if job['title'] == web_title and job['description'] == web_description and job['company'] == web_company:
             count += 1
-        elif job['title'] == robot_title and job['description'] == robot_description and\
+        elif job['title'] == robot_title and job['description'] == robot_description and \
                 job['company'] == robot_company:
             count += 1
 
@@ -455,7 +455,7 @@ def selected_jobs_func(all_jobs, test_address):
     job_db_connection, job_db_cursor = DataController.open_db("selected_jobs_db")
     job_cache_db_connection, job_cache_db_cursor = DataController.open_db("selected_jobs_cache_db")
     loc_db_connection, loc_db_cursor = DataController.open_db("selected_location_db")
-    default_job_cache_db_connection, default_job_cache_db_cursor =\
+    default_job_cache_db_connection, default_job_cache_db_cursor = \
         DataController.open_db("selected_default_jobs_cache_db")
     # drop tables because these databases are used in two test and we want a fresh table every time
     job_cache_db_cursor.execute("DROP TABLE IF EXISTS JOBS_CACHE;")
@@ -484,3 +484,77 @@ def selected_jobs_func(all_jobs, test_address):
     jobs_cache = DataController.load_jobs_cache(job_cache_db_cursor)
 
     return DataController.get_jobs_from_cache_with_lat_long(jobs_cache, lat, lon)
+
+
+# disclaimer geopy cannot find every job within 50 miles of said town.
+# however these are locations that geopy can identify
+# this test to see if the function can distinguish which jobs are within the user's location input
+def test_location_filter_not_all_good_data():
+    ssl._create_default_https_context = ssl._create_unverified_context
+    providence_robot_job = {'title': "MongoDB Developer", 'job_type': "Full Time", 'company': "iRobot",
+                            'location': "Providence, RI", 'description': "Use Angular", 'api_id': "1234",'url': "w",
+                            'created_at': "Wed, 12 Feb 2010 20:55:54 Z", 'how_to_apply_info': "google.com",
+                            'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "angular"}
+    boston_web_job = {'title': "Backend Developer", 'job_type': "Full Time", 'company': "IP", 'location': "Boston, MA",
+                      'description': "Develop websites", 'api_id': "12345", 'url': "www.apply.com",
+                      'created_at': "Wed, 12 Feb 2000 20:55:54 Z", 'how_to_apply_info': "google.com",
+                      'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "javascript"}
+    spain_job = {'title': "Junior Developer", 'job_type': "Full Time", 'company': "iRobot", 'location': "Spain",
+                 'description': "Develop python programs", 'api_id': "12346", 'url': "www.apply.com",
+                 'created_at': "Wed, 12 Feb 2015 20:55:54 Z", 'how_to_apply_info': "google.com",
+                 'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "Python"}
+    location = "Boston, MA"
+    loc_db_connection, loc_db_cursor = DataController.open_db("selected_lat_lon_location_db")
+    DataController.create_location_cache_table(loc_db_cursor)
+    all_jobs = [providence_robot_job, boston_web_job, spain_job]
+    filtered_jobs = App.filter_jobs_with_location(location, loc_db_cursor, all_jobs, 50)
+    # only two of these jobs are 50 miles within boston and if two are found then test pass
+    assert len(filtered_jobs) == 2
+
+
+def test_location_filter_all_good_data():
+    ssl._create_default_https_context = ssl._create_unverified_context
+    providence_robot_job = {'title': "MongoDB Developer", 'job_type': "Full Time", 'company': "iRobot",
+                            'location': "Providence, RI", 'description': "Use Angular", 'api_id': "1234", 'url': "w",
+                            'created_at': "Wed, 12 Feb 2010 20:55:54 Z", 'how_to_apply_info': "google.com",
+                            'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "angular"}
+    boston_web_job = {'title': "Backend Developer", 'job_type': "Full Time", 'company': "IP", 'location': "Boston, MA",
+                      'description': "Develop websites", 'api_id': "12345", 'url': "www.apply.com",
+                      'created_at': "Wed, 12 Feb 2000 20:55:54 Z", 'how_to_apply_info': "google.com",
+                      'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "javascript"}
+    providence_job = {'title': "Developer", 'job_type': "Full Time", 'company': "Rob", 'location': "Providence, RI",
+                 'description': "Develop python programs", 'api_id': "12346", 'url': "www.apply.com",
+                 'created_at': "Wed, 12 Feb 2015 20:55:54 Z", 'how_to_apply_info': "google.com",
+                 'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "Python"}
+    location = "Boston, MA"
+    loc_db_connection, loc_db_cursor = DataController.open_db("selected_lat_lon_location_db")
+    DataController.create_location_cache_table(loc_db_cursor)
+    all_jobs = [providence_robot_job, boston_web_job, providence_job]
+    filtered_jobs = App.filter_jobs_with_location(location, loc_db_cursor, all_jobs, 50)
+    # only two of these jobs are 50 miles within boston and if two are found then test pass
+    assert len(filtered_jobs) == 3
+
+
+# test to see if function can see if no jobs are within user's requested location
+def test_location_filter_bad_data():
+    ssl._create_default_https_context = ssl._create_unverified_context
+    providence_robot_job = {'title': "MongoDB Developer", 'job_type': "Full Time", 'company': "iRobot",
+                            'location': "Providence, RI", 'description': "Use Angular", 'api_id': "1234",
+                            'url': "w",
+                            'created_at': "Wed, 12 Feb 2010 20:55:54 Z", 'how_to_apply_info': "google.com",
+                            'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "angular"}
+    boston_web_job = {'title': "Backend Developer", 'job_type': "Full Time", 'company': "IP", 'location': "Boston, MA",
+                      'description': "Develop websites", 'api_id': "12345", 'url': "www.apply.com",
+                      'created_at': "Wed, 12 Feb 2000 20:55:54 Z", 'how_to_apply_info': "google.com",
+                      'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "javascript"}
+    spain_job = {'title': "Junior Developer", 'job_type': "Full Time", 'company': "iRobot", 'location': "Spain",
+                 'description': "Develop python programs", 'api_id': "12346", 'url': "www.apply.com",
+                 'created_at': "Wed, 12 Feb 2015 20:55:54 Z", 'how_to_apply_info': "google.com",
+                 'company_logo_url': "google.com", 'company_url': "google", 'additional_info': "Python"}
+    location = "Sunnyvale, California"
+    loc_db_connection, loc_db_cursor = DataController.open_db("selected_lat_lon_location_db")
+    DataController.create_location_cache_table(loc_db_cursor)
+    all_jobs = [providence_robot_job, boston_web_job, spain_job]
+    filtered_jobs = App.filter_jobs_with_location(location, loc_db_cursor, all_jobs, 50)
+    # none of these jobs are near sunnyvale california so it should return false
+    assert filtered_jobs is False

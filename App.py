@@ -138,13 +138,30 @@ app.layout = html.Div(children=[
     ], className='row'),
     html.Div(children=[
         html.Div(children=[
-            html.Button(
-                "Apply Filters",
-                id="apply-filters-btn"
+            html.Div(children=[dcc.Input(
+                id="location-filter",
+                placeholder="Location",
+                type="text",
+                value=""
+            ), '\t',
+                dcc.Input(
+                id='miles',
+                placeholder='miles away',
+                type='number',
+                value=''
+            )],
+                className="six columns"
             ),
-            html.Button(
-                'Get Remote Jobs',
-                id="remote-jobs-btn"
+            html.Div(children=[
+                html.Button(
+                    "Apply Filters",
+                    id="apply-filters-btn"
+                ),
+                html.Button(
+                    'Get Remote Jobs',
+                    id="remote-jobs-btn"
+                )],
+                className='six columns'
             )
         ])
     ],
@@ -192,18 +209,20 @@ app.layout = html.Div(children=[
                State('tech-1-selection', 'value'),
                State('tech-2-selection', 'value'),
                State('tech-3-selection', 'value'),
-               State('job-title', 'value')])
-def update_map(n_clicks, selected_time, selected_company, first_tech, second_tech, third_tech, job_title):
+               State('job-title', 'value'),
+               State('location-filter', 'value'),
+               State('miles', 'value')])
+def update_map(n_clicks, time, company, first_tech, second_tech, third_tech, job_title, location, miles):
     # when dash runs, this events gets called before we can press anything so that is why if statement is here
     # so if we haven't clicked yet we won't apply all these filters
     if n_clicks is not None:
-        return update_map_with_filters(selected_time, selected_company, first_tech, second_tech, third_tech, job_title)
+        return update_map_with_filters(time, company, first_tech, second_tech, third_tech, job_title, location, miles)
     else:
         return figure_with_all_non_remote_jobs_on_map, ''
 
 
 # this function is what gets called by update_map but can be used with any data
-def update_map_with_filters(selected_time, selected_company, first_tech, second_tech, third_tech, job_title):
+def update_map_with_filters(time, selected_company, first_tech, second_tech, third_tech, job_title, location, miles):
     error_message = 'ERROR: no jobs with these criteria'
     job_db_connection, job_db_cursor = DataController.open_db("jobs_db")
     loc_db_connection, loc_db_cursor = DataController.open_db("location_db")
@@ -216,7 +235,7 @@ def update_map_with_filters(selected_time, selected_company, first_tech, second_
     if DataController.is_company_in_db(job_db_cursor, selected_company) is False:
         return figure_with_all_non_remote_jobs_on_map, error_message
     # gets job on or after a certain date
-    selected_jobs_after_time = filter_jobs_with_time(job_db_cursor, selected_time)
+    selected_jobs_after_time = filter_jobs_with_time(job_db_cursor, time)
     if selected_jobs_after_time is False:  # it returns false if no jobs were found
         return figure_with_all_non_remote_jobs_on_map, error_message
     non_remote_jobs = DataController.get_all_non_remote_jobs(selected_jobs_after_time)
@@ -232,6 +251,11 @@ def update_map_with_filters(selected_time, selected_company, first_tech, second_
     # if any of these conditions are true no need to generate a new data frame and map just return default map
     if selected_jobs is False or len(selected_jobs) == 0:
         return figure_with_all_non_remote_jobs_on_map, error_message
+
+    selected_jobs = filter_jobs_with_location(location, loc_db_cursor, selected_jobs, miles)
+    if selected_jobs is False:
+        return figure_with_all_non_remote_jobs_on_map, error_message \
+               + " DISCLAIMER: NON MAJOR TOWNS OR CITIES MAY NOT BE FOUND BY PROGRAM"
     jobs_data = DataController.process_job_data_into_data_frame(loc_db_cursor, selected_jobs, [job_cache_db_cursor])
     # first object is data frame next object is remote jobs that could not be process by previous func
     jobs_data_frame = jobs_data[0]
@@ -292,7 +316,7 @@ def filter_jobs_with_company(all_jobs, selected_company: str):
 
 
 # filter out jobs that have one of these technologies, it works as it has first tech or second tech or third tech
-def filter_jobs_with_technology(all_jobs: str, first_tech: str, second_tech: str, third_tech: str):
+def filter_jobs_with_technology(all_jobs: List, first_tech: str, second_tech: str, third_tech: str):
     # if user input is empty then don't filter
     stripped_first_tech = first_tech.strip()
     stripped_second_tech = second_tech.strip()
@@ -315,6 +339,29 @@ def filter_jobs_with_time(job_db_cursor, selected_time: datetime):
     if selected_jobs is False:  # selected jobs is false if no jobs were found that match the time
         return False
     return selected_jobs
+
+
+#  filters out jobs base on lat long
+def filter_jobs_with_location(location: str, location_cursor, all_jobs: List, miles):
+    filtered_jobs = []
+    print(location)
+    # checks to see if user input is empty
+    if location.strip() == "":
+        return all_jobs
+    all_locations = DataController.load_location_cache(location_cursor)
+    location_data = DataController.get_one_place_from_address(location, all_locations, "NOT PROVIDED")
+    if location_data is False:
+        return False
+    location_lat = float(location_data[1])
+    location_lon = float(location_data[2])
+    # goes through jobs and check if they are within x amount of miles of the requested location
+    for job in all_jobs:
+        job_location = job['location']
+        if DataController.is_job_within_x_miles(job_location, location_lat, location_lon, all_locations, miles):
+            filtered_jobs.append(job)
+    if len(filtered_jobs) == 0:
+        return False
+    return filtered_jobs
 
 
 if __name__ == '__main__':

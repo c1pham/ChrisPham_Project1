@@ -4,10 +4,12 @@
 # This job data is then taken and shown on a webpage. The user can see all the remote jobs by pressing a remote jobs button.
 # The user can see the job info on the map by hovering over the points. However if there are more than 20 jobs in a location.
 # If they press on a point they see more information about the job.
-# The user can filter out the jobs by title, technology, company, and time. 
+# The user can filter out the jobs by title, technology, company, location, and time.
 # The technology filter allows the user to specify 3 technologies and a job will if any of the three technologies show up in the job title description or tags
-# It also has 19 test cases to test the application
+# It also has 23 test cases to test the application
 # The test see if the job data from both sources are downloaded correctly, saved correctly, and reject bad data. We also check if the database and job table is created correctly
 # The title, technology, time, and title filters are also all tested for good data and bad data
 # The selected job info from the plotly map is also tested
-# The project has all parts completed
+# An geo filter is being tested too. It test for three different scenarios being all jobs are not in range, or all jobs are in range, and some jobs are in range but not all
+# The project has all parts completed, and the geo filter bonus is done also
+# my only disclaimer about the geo filter is not every town or city can be found by geopy

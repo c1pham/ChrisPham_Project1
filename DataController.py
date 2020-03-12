@@ -665,6 +665,29 @@ def process_db_job_data(job: Tuple) -> Dict:
     return job_data
 
 
+# looks at lat lon of an job's location and compares it to another lat lon and sees if its within x amount of miles
+def is_job_within_x_miles(job_location, location_lat, location_lon, all_locations: dict, miles):
+    space_buffer = miles / 69  # 1 lat lon coordinate is 69 miles so this fraction represents a lat lon worth x miles
+    if job_location in all_locations:
+        coordinates = all_locations[job_location]
+        job_lat = float(coordinates[0])
+        job_lon = float(coordinates[1])
+        # checks if this is an lat lon within x miles by seeing if its within the range of itself and + - buffer
+        if (location_lat - space_buffer) <= job_lat <= (location_lat + space_buffer) \
+                and (location_lon - space_buffer) <= job_lon <= (location_lon + space_buffer):
+            return True
+    else:
+        location_data = get_one_place_from_address(job_location, all_locations, "NOT PROVIDED")
+        if location_data is not False:
+            job_lat = float(location_data[1])
+            job_lon = float(location_data[2])
+            # checks if this is an lat lon within x miles by seeing if its within the range of itself and + - buffer
+            if (location_lat - space_buffer) <= job_lat <= (location_lat + space_buffer) \
+                    and (location_lon - space_buffer) <= job_lon <= (location_lon + space_buffer):
+                return True
+    return False
+
+
 # close database
 def close_dbs(connections: List):
     for db_connection in connections:
